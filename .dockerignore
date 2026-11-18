@@ -1,0 +1,17 @@
+**/node_modules
+**/build
+**/.svelte-kit
+**/.pglite
+**/coverage
+**/test-results
+**/playwright-report
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.github
+prep
+**/prep
+docs
+deploy
+*.md

@@ -1,0 +1,8 @@
+{
+	# Interne Zertifizierungsstelle für LAN-Namen wie *.fritz.box.
+	# Das Root-Zertifikat liegt nach dem ersten Start in Volume caddy_data unter
+	# /data/caddy/pki/authorities/local/root.crt und wird einmalig auf Handy/Laptop installiert.
+	local_certs
+}
+
+import sites/*.caddy

@@ -1,0 +1,19 @@
+title = "home-dashboard"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "at-metering-point"
+description = "Österreichische Zählpunktnummer"
+regex = '''\bAT\d{6}[0-9A-Z]{25}\b'''
+tags = ["pii"]
+
+[[rules]]
+id = "smartmeter-key"
+description = "Smartmeter-Kundenschnittstellen-Schlüssel (32 Hex-Zeichen) in Zuweisung"
+regex = '''(?i)(smartmeter|amis|meter)[_-]?(key|schluessel|schlüssel)\s*[:=]\s*["']?[0-9a-f]{32}'''
+tags = ["secret"]
+
+[allowlist]
+paths = ['''pnpm-lock\.yaml''']

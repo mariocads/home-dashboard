@@ -1,0 +1,7 @@
+#!/bin/sh
+# Verhindert, dass private Daten (prep/, .env, Zählpunkt) ins öffentliche Repo gelangen.
+node scripts/guard-private-files.mjs --staged || exit 1
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --config .gitleaks.toml || exit 1
+fi

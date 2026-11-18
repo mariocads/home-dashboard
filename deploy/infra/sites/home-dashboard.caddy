@@ -1,0 +1,12 @@
+# Home Dashboard – nur im Heimnetz (keine Portfreigabe in der FRITZ!Box).
+home.fritz.box {
+	tls internal
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	reverse_proxy home-dashboard-web:3000
+}

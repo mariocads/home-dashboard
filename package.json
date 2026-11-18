@@ -1,0 +1,39 @@
+{
+  "name": "home-dashboard",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
+    "guard": "node scripts/guard-private-files.mjs --all",
+    "guard:staged": "node scripts/guard-private-files.mjs --staged",
+    "dev": "pnpm --filter @hd/web dev",
+    "build": "pnpm -r --if-present build",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "pnpm --filter @hd/web test:e2e",
+    "db:generate": "pnpm --filter @hd/db generate",
+    "db:migrate": "pnpm --filter @hd/db migrate"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^5.1.1",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-svelte": "^3.24.1",
+    "fast-check": "^4.10.2",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "prettier-plugin-svelte": "^4.2.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.73.0",
+    "vitest": "^5.1.1"
+  }
+}

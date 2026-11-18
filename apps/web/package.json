@@ -1,0 +1,38 @@
+{
+  "name": "@hd/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#lib": "./src/lib",
+    "#lib/*": "./src/lib/*"
+  },
+  "scripts": {
+    "prepare": "svelte-kit sync || echo ''",
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node build/index.js",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "setup-token": "node scripts/setup-token.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@hd/db": "workspace:*",
+    "@hd/domain": "workspace:*",
+    "@electric-sql/pglite": "^0.5.16",
+    "postgres": "^4.1.1",
+    "@simplewebauthn/server": "^14.1.0",
+    "drizzle-orm": "^0.45.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@simplewebauthn/browser": "^14.0.0",
+    "@sveltejs/adapter-node": "^6.0.4",
+    "@sveltejs/kit": "^3.3.1",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "svelte": "^5.58.0",
+    "svelte-check": "^4.7.8",
+    "vite": "^8.3.8"
+  }
+}

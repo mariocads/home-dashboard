@@ -1,0 +1,89 @@
+# Home Dashboard – gekapseltes Compose-Projekt.
+#   cp .env.example .env && nano .env
+#   ./deploy.sh
+
+name: home-dashboard
+
+x-limits: &small
+  cpus: '0.5'
+  memory: 256M
+
+services:
+  db:
+    image: timescale/timescaledb:${TIMESCALE_TAG:-latest-pg16}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: homedash
+      POSTGRES_DB: homedash
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD in .env setzen}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U homedash -d homedash']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  web:
+    image: ghcr.io/mariocads/home-dashboard-web:${TAG:-main}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://homedash:${POSTGRES_PASSWORD}@db:5432/homedash
+      ORIGIN: ${ORIGIN:-https://home.fritz.box}
+      RP_ID: ${RP_ID:-home.fritz.box}
+      # Client-IP für Rate-Limit aus dem Caddy-Header
+      ADDRESS_HEADER: X-Forwarded-For
+      XFF_DEPTH: '1'
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      backend:
+      proxy:
+        aliases: [home-dashboard-web]
+    deploy:
+      resources:
+        limits: *small
+
+  collector:
+    image: ghcr.io/mariocads/home-dashboard-collector:${TAG:-main}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://homedash:${POSTGRES_PASSWORD}@db:5432/homedash
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy # web führt die Migrationen aus
+    networks:
+      - backend
+      - lan # Zugriff auf Geräte im Heimnetz (AMIS-Leser, go-e, ISG, …)
+    deploy:
+      resources:
+        limits: *small
+
+  # Ab Phase 1b (AMIS-Leser):
+  # mosquitto:
+  #   image: eclipse-mosquitto:2
+  #   restart: unless-stopped
+  #   ports: ['1883:1883']
+  #   volumes: ['./mosquitto:/mosquitto/config:ro', 'mosquitto_data:/mosquitto/data']
+  #   networks: [backend, lan]
+
+volumes:
+  db_data:
+
+networks:
+  # Nur intern: Datenbank ist von außen nicht erreichbar
+  backend:
+    internal: true
+  lan:
+  proxy:
+    external: true

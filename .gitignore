@@ -1,0 +1,46 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PRIVAT: Ausgangsdaten mit Smartmeter-Schlüssel, Zählpunkt, Adresse, Rohdaten.
+# Der Ordner prep – inklusive ALLER Unterordner und Dateien, an jeder Stelle im
+# Baum – darf NIEMALS ins öffentliche Repo. Zusätzlich abgesichert durch
+# scripts/guard-private-files.mjs (Pre-Commit-Hook und CI).
+# ─────────────────────────────────────────────────────────────────────────────
+prep/
+prep/**
+**/prep/
+**/prep/**
+
+# Secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Rohdaten-Exporte (NetzOÖ-CSV etc.); nur synthetische Test-Fixtures erlaubt
+data/
+*.csv
+!**/fixtures/**/*.csv
+
+# Node / Build
+node_modules/
+dist/
+build/
+.svelte-kit/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Lokale Entwicklungs-DB (PGlite)
+.pglite/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Server-Laufzeitdateien
+deploy/**/backups/
+deploy/**/.deploy-history

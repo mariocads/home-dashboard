@@ -1,0 +1,36 @@
+# Gemeinsamer Reverse Proxy für ALLE Projekte auf dem ThinkCentre.
+# Jedes Projekt hängt seinen Web-Container an das externe Netzwerk "proxy"
+# und legt eine <projekt>.caddy-Datei in ./sites ab.
+#
+#   docker network create proxy     # einmalig
+#   docker compose up -d
+
+name: infra
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  proxy:
+    external: true
