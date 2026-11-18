@@ -17,8 +17,10 @@ FROM base AS runtime
 ENV NODE_ENV=production \
     PORT=3000 \
     HOST=0.0.0.0
+# Paketmanager (npm, pnpm, yarn, corepack) werden zur Laufzeit nicht gebraucht und bringen eigene CVEs mit.
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts --filter "@hd/web..." \
-    && npm uninstall -g pnpm && rm -rf /root/.cache /root/.local/share/pnpm
+    && rm -rf /usr/local/lib/node_modules /opt/yarn-* /root/.cache /root/.npm /root/.local/share/pnpm \
+    && find /usr/local/bin -maxdepth 1 \( -name 'np[mx]' -o -name 'pnp[mx]' -o -name 'yarn*' -o -name corepack \) -delete
 COPY packages/db packages/db
 COPY packages/domain packages/domain
 COPY apps/web/scripts apps/web/scripts
