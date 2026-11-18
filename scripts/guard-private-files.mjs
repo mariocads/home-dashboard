@@ -17,6 +17,9 @@ import { fileURLToPath } from 'node:url';
 /** Österreichische Zählpunktbezeichnung: "AT" + 6 Ziffern Netzbetreiber + 25 alphanumerische Zeichen. */
 export const METERING_POINT_PATTERN = /\bAT\d{6}[0-9A-Z]{25}\b/;
 
+/** Zählernummer in einer AMIS-Leser-Antwort. Synthetische Fixtures verwenden nur Nullen. */
+export const AMIS_SERIAL_PATTERN = /"serialnumber"\s*:\s*"(?!0+")[0-9A-Za-z]{6,}"/;
+
 /** Liefert einen Grund, warum der Pfad blockiert ist, oder null. */
 export function checkPath(path) {
   const normalized = path.replaceAll('\\', '/');
@@ -41,6 +44,9 @@ export function checkPath(path) {
 export function checkContent(content) {
   if (METERING_POINT_PATTERN.test(content)) {
     return 'enthält eine Zählpunktnummer';
+  }
+  if (AMIS_SERIAL_PATTERN.test(content)) {
+    return 'enthält eine echte Zählernummer aus dem AMIS-Leser';
   }
   return null;
 }

@@ -49,15 +49,25 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page 
   const recoveryCode = (await codes.first().textContent())!.trim();
   await page.getByTestId('setup-done').click();
 
-  // Dashboard mit unterer Navigation
+  // Dashboard mit unterer Navigation; ohne Collector noch keine Live-Leistung
   await expect(page.getByRole('heading', { name: 'Übersicht' })).toBeVisible();
+  await expect(page.getByTestId('tile-power')).toContainText('noch keine Daten vom AMIS-Leser');
   const nav = page.getByRole('navigation', { name: 'Hauptnavigation' });
   await expect(nav).toBeVisible();
   await nav.getByRole('link', { name: 'Strom' }).click();
   await expect(page.getByRole('heading', { name: 'Strom' })).toBeVisible();
 
-  // Einstellungen: ein Passkey, dann Logout
+  // Einstellungen: AMIS-Intervall (Standard 60 s) ändern und nach Neuladen prüfen
   await nav.getByRole('link', { name: 'Einstellungen' }).click();
+  const interval = page.getByLabel('Abfrageintervall in Sekunden');
+  await expect(interval).toHaveValue('60');
+  await interval.fill('120');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Gespeichert' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Abfrageintervall in Sekunden')).toHaveValue('120');
+
+  // Einstellungen: ein Passkey, dann Logout
   await expect(page.getByTestId('passkey-list').locator('li')).toHaveCount(1);
   await page.getByTestId('logout').click();
   await expect(page).toHaveURL(/\/login$/);

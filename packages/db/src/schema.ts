@@ -3,6 +3,7 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   serial,
@@ -83,6 +84,15 @@ export const authChallenges = pgTable('auth_challenges', {
   purpose: text('purpose', { enum: ['register', 'login'] }).notNull(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});
+
+// ─── Einstellungen ────────────────────────────────────────────────────────────
+
+/** Einstellungen, die in der App geändert werden (Schlüssel und Validierung im domain-Paket). */
+export const settings = pgTable('settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // ─── Messdaten ────────────────────────────────────────────────────────────────

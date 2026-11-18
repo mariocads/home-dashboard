@@ -42,4 +42,11 @@ describe('guard-private-files', () => {
     expect(checkContent(`foo ${synthetic} bar`)).not.toBeNull();
     expect(checkContent('AT12345 kurz')).toBeNull();
   });
+
+  it('erkennt eine Zählernummer in einer AMIS-Antwort, erlaubt aber Nullen in Fixtures', () => {
+    // zur Laufzeit zusammengesetzt, damit diese Datei selbst den Guard besteht
+    const fake = ['1234', 'A5678', '9B'].join('');
+    expect(checkContent(`{"1.7.0":100,"serialnumber":"${fake}"}`)).not.toBeNull();
+    expect(checkContent('{"1.7.0":100,"serialnumber": "0000000000000000"}')).toBeNull();
+  });
 });

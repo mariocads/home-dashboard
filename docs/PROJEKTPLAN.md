@@ -29,8 +29,8 @@ Eine zentrale Datenerfassung für das Zweiparteienhaus soll Strom, Wärmepumpe, 
 
 ```
                          Heimnetz (FRITZ!Box, Hauptnetz – nicht Gastnetz)
- ┌──────────────┐  MQTT   ┌─────────────────────────── ThinkCentre (Docker) ───────────────────────────┐
- │ AMIS-Leser   │────────▶│  mosquitto ──▶ collector ──▶ timescaledb ◀── web (SvelteKit) ◀── caddy ◀──│── Handy/Laptop
+ ┌──────────────┐  REST   ┌─────────────────────────── ThinkCentre (Docker) ───────────────────────────┐
+ │ AMIS-Leser   │◀────────┼───────────── collector ──▶ timescaledb ◀── web (SvelteKit) ◀── caddy ◀──│── Handy/Laptop
  │ (Smartmeter) │         │      ▲            ▲   ▲                         (UI, API, PDF)    (TLS)    │   https://home.fritz.box
  └──────────────┘         │      │            │   │                                                   │
  ┌──────────────┐  HTTP   │      │            │   └── Modbus TCP ── Stiebel ISG (WPM)                 │
@@ -88,8 +88,8 @@ Alle Zeitstempel werden in UTC gespeichert und in `Europe/Vienna` angezeigt. Die
 ## 4. Kapselung auf dem ThinkCentre
 
 - Ein **eigenes Compose-Projekt `infra`** enthält nur Caddy als gemeinsamen Reverse Proxy für alle Projekte, mit dem externen Docker-Netzwerk `proxy`.
-- Das **Compose-Projekt `home-dashboard`** (`/opt/stacks/home-dashboard`) umfasst `web`, `collector`, `timescaledb`, `mosquitto` und später `wmbusmeters`.
-  - Ein internes Netzwerk ist nur für die DB und den Broker da. Nur `web` hängt zusätzlich am Netzwerk `proxy`.
+- Das **Compose-Projekt `home-dashboard`** (`/opt/stacks/home-dashboard`) umfasst `web`, `collector`, `timescaledb` und später `wmbusmeters`. Mosquitto entfällt, solange kein Gerät MQTT braucht.
+  - Ein internes Netzwerk ist nur für die DB da. Nur `web` hängt zusätzlich am Netzwerk `proxy`.
   - Jeder Container hat CPU- und RAM-Limits, Restart-Policy, Healthchecks und Volumes mit klarem Namen.
 - Updates: `deploy.sh` holt das gewünschte Image-Tag aus GHCR, führt die Migrationen aus, startet `docker compose up -d` und prüft den Healthcheck. Rollback heißt: das vorherige Tag deployen.
 - Backup: nächtlich `pg_dump` plus `restic` auf ein externes Ziel (USB-Platte oder NAS). Ein Restore-Test steht als Checkliste in den Docs.
@@ -101,7 +101,7 @@ Alle Zeitstempel werden in UTC gespeichert und in `Europe/Vienna` angezeigt. Die
 | Ebene                   | Werkzeug                                                   | Inhalt                                                                            |
 | ----------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Unit und property-based | Vitest, fast-check                                         | `domain` und `parsers`, Coverage-Ziel ≥ 95 %                                      |
-| Integration             | Vitest, Testcontainers (TimescaleDB, Mosquitto)            | Repositories, Aggregates, Collector-Adapter gegen aufgezeichnete Geräte-Payloads  |
+| Integration             | Vitest, PGlite bzw. TimescaleDB im CI-Job                  | Repositories, Aggregates, Collector-Adapter gegen aufgezeichnete Geräte-Payloads  |
 | E2E                     | Playwright (Viewport iPhone/Pixel)                         | Login per virtuellem WebAuthn-Authenticator, CSV-Upload, Dashboards, PDF-Download |
 | Statisch                | ESLint, `tsc --strict`, Prettier, gitleaks, Trivy (Images) | in jeder Pull Request                                                             |
 
@@ -159,10 +159,19 @@ Gesamt-Coverage mindestens 80 %. Die CI bricht ab, wenn ein Schwellenwert unters
 
 ### Phase 1b: AMIS-Leser live (sobald die Hardware da ist)
 
-- AMIS-Leser bestellen und mit dem NetzOÖ-Schlüssel einrichten. Er kommt ins Haupt-WLAN, nicht ins Gastnetz.
-- Mosquitto anbinden, der Collector-Adapter verarbeitet die Live-Leistung und die Zählerstände.
-- Kachel mit der Live-Leistung (Aktualisierung über SSE)
+- ~~AMIS-Leser bestellen und mit dem NetzOÖ-Schlüssel einrichten.~~ Installiert am 18.11.2026, im Haupt-WLAN mit fester IP, erreichbar als `amis-1.fritz.box`.
+- ~~Collector-Adapter für die Live-Leistung und die Zählerstände.~~ Entschieden am 18.11.2026: **REST-Abfrage statt MQTT**, kein Mosquitto. Intervall Standard 60 s, in der App unter Einstellungen änderbar (5–3600 s). Gespeichert werden Zählerstand Bezug/Einspeisung (kWh) und Leistung Bezug/Einspeisung (W). MQTT kommt erst, wenn ein zweiter Abnehmer (z. B. Loxone) die Daten braucht.
+- ~~Kachel mit der Live-Leistung~~ Lädt alle 30 s nach; bei 60 s Intervall reicht das, SSE ist nicht nötig. Zeigt „veraltet“, wenn der letzte Wert älter als drei Intervalle ist.
 - Zusammenführung mit den CSV-Daten: Je Zeitpunkt gewinnt die Quelle mit der höchsten Priorität. Der CSV-Import bleibt als Nachweis- und Korrekturquelle erhalten.
+
+**Schnittstelle des AMIS-Lesers** (gesichtet am 18.11.2026, Firmware `mgerhard74/amis_smartmeter_reader`, ESP8266):
+
+- `GET /rest` liefert JSON, die Werte aktualisieren sich etwa jede Sekunde. MQTT ist in der Firmware ebenfalls verfügbar.
+- `time`: Unix-Zeit in Sekunden (UTC)
+- Energie in Wh: `1.8.0` Bezug, `2.8.0` Einspeisung, `3.8.1`/`4.8.1` Blindenergie (varh)
+- Leistung in W: `1.7.0` Bezug, `2.7.0` Einspeisung, `saldo` = Bezug − Einspeisung, `3.7.0`/`4.7.0` Blindleistung (var)
+- Weitere Felder: `1.6.0`, `1.6.0_vm`, `1.128.0` (Bedeutung noch zu klären)
+- `serialnumber` ist die Zählernummer. Der Adapter verwirft sie, sie wird weder gespeichert noch geloggt. Test-Fixtures sind synthetisch, echte Aufzeichnungen liegen nur in `prep/`.
 
 ### Phase 2: Kostensplit und PDF-Abrechnung
 

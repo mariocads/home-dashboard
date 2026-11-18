@@ -40,6 +40,49 @@
     </section>
   {/if}
 
+  <section class="card stack" aria-labelledby="amis-heading">
+    <h2 id="amis-heading">AMIS-Leser</h2>
+    <form
+      method="POST"
+      action="?/saveAmisInterval"
+      use:enhance={() =>
+        async ({ update }) =>
+          update({ reset: false })}
+    >
+      <label for="amis-interval">Abfrageintervall in Sekunden</label>
+      <div class="row">
+        <input
+          id="amis-interval"
+          name="interval"
+          type="number"
+          inputmode="numeric"
+          required
+          min={data.amis.min}
+          max={data.amis.max}
+          step="1"
+          value={data.amis.interval}
+        />
+        <button class="secondary" type="submit">Speichern</button>
+      </div>
+    </form>
+    {#if form && 'amisError' in form && form.amisError}
+      <p class="error" role="alert">{form.amisError}</p>
+    {:else if form && 'amisSaved' in form && form.amisSaved}
+      <p class="muted small" role="status">
+        Gespeichert. Der Collector übernimmt den Wert innerhalb von 10 s.
+      </p>
+    {/if}
+    <p class="muted small" data-testid="amis-status">
+      {#if data.amis.power}
+        Letzter Messwert {fmt.format(new Date(data.amis.power.ts))}{data.amis.power.stale
+          ? ' – veraltet, Leser oder Collector prüfen'
+          : ''}
+      {:else}
+        Noch keine Messwerte empfangen.
+      {/if}
+    </p>
+  </section>
+
   <section class="card stack">
     <h2>Passkeys</h2>
     <ul class="list" data-testid="passkey-list">
@@ -113,6 +156,17 @@
 
   .small {
     font-size: 0.8rem;
+  }
+
+  .row {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .row input {
+    flex: 1;
+    min-width: 0;
   }
 
   .warn {

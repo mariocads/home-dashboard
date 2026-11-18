@@ -1,5 +1,6 @@
-import { createDb } from '@hd/db';
+import { createDb, runMigrations } from '@hd/db';
 import { type Adapter, createLogger } from './adapter.ts';
+import { createAmisAdapter, DEFAULT_AMIS_URL } from './adapters/amis.ts';
 import { buildHealthReport, createHealthServer } from './health.ts';
 
 const log = createLogger('collector');
@@ -13,9 +14,15 @@ if (!databaseUrl) {
 const healthPort = Number(process.env.HEALTH_PORT ?? 8081);
 
 const handle = createDb(databaseUrl);
+// Idempotent. In Docker hat web die Migrationen schon ausgeführt; lokal (PGlite) braucht es diesen Schritt.
+await runMigrations(handle);
 
-/** Registrierte Datenquellen – werden ab Phase 1b ergänzt (AMIS, go-e, ISG, wmbusmeters, …). */
+/** Registrierte Datenquellen (später: go-e, ISG, wmbusmeters, …). */
 const adapters: Adapter[] = [];
+
+// AMIS-Leser: AMIS_URL leer setzen, um den Adapter abzuschalten.
+const amisUrl = process.env.AMIS_URL ?? DEFAULT_AMIS_URL;
+if (amisUrl) adapters.push(createAmisAdapter({ url: amisUrl }));
 
 for (const adapter of adapters) {
   await adapter.start({ db: handle.db, log: createLogger(adapter.name) });
