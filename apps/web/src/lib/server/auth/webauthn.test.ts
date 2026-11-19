@@ -9,7 +9,7 @@ import { AuthError, finishLogin, finishRegistration, startLogin, startRegistrati
 // Der vollständige Kryptografie-Pfad (echte Signaturen) wird im Playwright-Test mit virtuellem Authenticator geprüft.
 // Hier: Optionen, Challenge-Handling und alle Ablehnungspfade.
 
-const config = loadConfig({ ORIGIN: 'https://home.fritz.box' });
+const config = loadConfig({ ORIGIN: 'https://home-server.fritz.box' });
 
 describe('webauthn', () => {
   let h: DbHandle;
@@ -36,7 +36,7 @@ describe('webauthn', () => {
       transports: ['internal'],
     });
     const { options, challengeId } = await startRegistration(h.db, config, user);
-    expect(options.rp).toEqual({ name: 'Home Dashboard', id: 'home.fritz.box' });
+    expect(options.rp).toEqual({ name: 'Home Dashboard', id: 'home-server.fritz.box' });
     expect(options.authenticatorSelection).toMatchObject({
       residentKey: 'required',
       userVerification: 'required',
@@ -47,7 +47,7 @@ describe('webauthn', () => {
 
   it('Login-Optionen: discoverable credentials (keine allowCredentials)', async () => {
     const { options } = await startLogin(h.db, config);
-    expect(options.rpId).toBe('home.fritz.box');
+    expect(options.rpId).toBe('home-server.fritz.box');
     expect(options.allowCredentials ?? []).toEqual([]);
     expect(options.userVerification).toBe('required');
   });

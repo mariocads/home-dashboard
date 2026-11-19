@@ -1,9 +1,9 @@
 export interface AppConfig {
   databaseUrl: string;
-  /** WebAuthn Relying-Party-ID = Hostname, z. B. home.fritz.box. Nicht mehr ändern, sonst werden Passkeys ungültig. */
+  /** WebAuthn Relying-Party-ID = Hostname, z. B. home-server.fritz.box. Nicht mehr ändern, sonst werden Passkeys ungültig. */
   rpId: string;
   rpName: string;
-  /** Erwartete Origin für WebAuthn, z. B. https://home.fritz.box */
+  /** Erwartete Origin für WebAuthn, z. B. https://home-server.fritz.box */
   origin: string;
   sessionDays: number;
   secureCookies: boolean;

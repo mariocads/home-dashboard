@@ -2,7 +2,7 @@
 
 Ein selbst gehostetes Dashboard für ein Zweiparteienhaus. Es erfasst die Energiedaten zentral (Smartmeter, Wärmepumpe, Wallbox, Wärme- und Kältezähler), macht Kosten transparent und teilt sie monatlich zwischen den Parteien auf.
 
-- **Nur im Heimnetz** unter `https://home.fritz.box` erreichbar, Login per **Passkey**
+- **Nur im Heimnetz** unter `https://home-server.fritz.box` erreichbar, Login per **Passkey**
 - **Mobile first** als PWA mit Dark Mode
 - **TypeScript Full-Stack:** SvelteKit 3, Node 24, PostgreSQL/TimescaleDB, Drizzle ORM
 - **Tests:** Vitest, property-based Tests mit fast-check, Playwright im Mobile-Viewport

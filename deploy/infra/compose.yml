@@ -1,4 +1,4 @@
-# Gemeinsamer Reverse Proxy für ALLE Projekte auf dem ThinkCentre.
+# Gemeinsamer Reverse Proxy für ALLE Projekte auf dem Server (ThinkCentre bzw. übergangsweise Raspberry Pi).
 # Jedes Projekt hängt seinen Web-Container an das externe Netzwerk "proxy"
 # und legt eine <projekt>.caddy-Datei in ./sites ab.
 #

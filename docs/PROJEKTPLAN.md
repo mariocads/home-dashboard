@@ -11,7 +11,7 @@ Eine zentrale Datenerfassung für das Zweiparteienhaus soll Strom, Wärmepumpe, 
 | Architektur          | Eigene Web-App und eigene Zeitreihen-DB. Die Geräte werden über bewährte Collector-Tools angebunden (MQTT, Modbus, wmbusmeters). |
 | Tech-Stack           | TypeScript Full-Stack: SvelteKit (UI und API) und ein Node-Collector-Dienst in einem pnpm-Monorepo                               |
 | Datenbank            | PostgreSQL 16 mit TimescaleDB (Hypertables, Continuous Aggregates, Kompression)                                                  |
-| Zugriff              | Nur im Heimnetz unter `https://home.fritz.box` (FRITZ!Box-Hostname des ThinkCentre). Keine Portfreigabe.                         |
+| Zugriff              | Nur im Heimnetz unter `https://home-server.fritz.box` (FRITZ!Box-Hostname des ThinkCentre). Keine Portfreigabe.                  |
 | Benutzer             | Ein Admin-Account (Partei A). Partei B bekommt nur die PDF-Abrechnung, keinen Login.                                             |
 | Login                | Passkey (WebAuthn), dazu Recovery-Codes als Notfallzugang                                                                        |
 | Steuerung            | Nur lesen. Das Dashboard schaltet keine Geräte.                                                                                  |
@@ -21,7 +21,7 @@ Eine zentrale Datenerfassung für das Zweiparteienhaus soll Strom, Wärmepumpe, 
 | Abrechnung           | PDF pro Monat für Partei B, archiviert                                                                                           |
 | Tests                | Vitest, property-based Tests mit fast-check, Integrationstests mit Testcontainers, Playwright-E2E im Mobile-Viewport             |
 | Repo                 | GitHub, öffentlich. Keine Secrets und keine personenbezogenen Daten im Code.                                                     |
-| Hosting              | ThinkCentre M70q Gen5 mit Ubuntu, Docker Compose, gekapselt neben anderen Projekten                                              |
+| Hosting              | ThinkCentre M70q Gen5 mit Ubuntu, Docker Compose, gekapselt neben anderen Projekten. Bis dahin Raspberry Pi (Images multi-arch)  |
 | CI/CD                | GitHub Actions bauen Images und legen sie in GHCR ab. Auf dem Server wird per Pull-Skript deployt, ohne self-hosted Runner.      |
 | PV / Speicher        | Nicht vorhanden und nicht geplant                                                                                                |
 
@@ -31,7 +31,7 @@ Eine zentrale Datenerfassung für das Zweiparteienhaus soll Strom, Wärmepumpe, 
                          Heimnetz (FRITZ!Box, Hauptnetz – nicht Gastnetz)
  ┌──────────────┐  REST   ┌─────────────────────────── ThinkCentre (Docker) ───────────────────────────┐
  │ AMIS-Leser   │◀────────┼───────────── collector ──▶ timescaledb ◀── web (SvelteKit) ◀── caddy ◀──│── Handy/Laptop
- │ (Smartmeter) │         │      ▲            ▲   ▲                         (UI, API, PDF)    (TLS)    │   https://home.fritz.box
+ │ (Smartmeter) │         │      ▲            ▲   ▲                         (UI, API, PDF)    (TLS)    │   https://home-server.fritz.box
  └──────────────┘         │      │            │   │                                                   │
  ┌──────────────┐  HTTP   │      │            │   └── Modbus TCP ── Stiebel ISG (WPM)                 │
  │ go-e Gemini  │─────────┼──────┼────────────┘                                                       │
@@ -78,7 +78,7 @@ Alle Zeitstempel werden in UTC gespeichert und in `Europe/Vienna` angezeigt. Die
 - Im Code heißen die Parteien neutral „Partei A/B“. Die echten Namen stehen nur in der DB-Konfiguration.
 - gitleaks als Pre-Commit-Hook und in der CI. Zusätzlich GitHub Secret Scanning und Dependabot bzw. Renovate.
 - Caddy lauscht nur im LAN. Es gibt keine Portfreigabe auf der FRITZ!Box.
-- Passkey-Login über SimpleWebAuthn mit `rpID = home.fritz.box`:
+- Passkey-Login über SimpleWebAuthn mit `rpID = home-server.fritz.box`:
   - Die erste Registrierung läuft über ein einmaliges Setup-Token, das per CLI am Server erzeugt wird.
   - Zwei Passkeys registrieren (Handy und Laptop) und zehn Recovery-Codes ausgeben.
   - WebAuthn braucht ein vertrauenswürdiges HTTPS. Deshalb wird die Root-CA von Caddy (`tls internal`) einmalig am Handy installiert. Unter iOS muss sie zusätzlich unter Einstellungen → Info → Zertifikatsvertrauen aktiviert werden.
@@ -125,12 +125,12 @@ Gesamt-Coverage mindestens 80 %. Die CI bricht ab, wenn ein Schwellenwert unters
 
 - Repo auf GitHub anlegen, pnpm-Monorepo, TypeScript strict, Lint, Prettier, Vitest, gitleaks-Hook
 - GitHub Actions: Lint, Typecheck, Tests, Build, Push nach GHCR, Trivy
-- Server: Docker einrichten, Compose-Projekt `infra` mit Caddy, Hostname `home` in der FRITZ!Box vergeben, Root-CA am Handy installieren
+- Server: Docker einrichten, Compose-Projekt `infra` mit Caddy, Hostname `home-server` in der FRITZ!Box vergeben, Root-CA am Handy installieren
 - Compose-Projekt `home-dashboard` mit TimescaleDB, erste Migration, Healthchecks, Backup-Skript
 - Passkey-Login inklusive Setup-Token und Recovery-Codes
 - Leere Mobile-first-PWA mit unterer Tab-Navigation (Übersicht · Strom · Kosten · Einstellungen), Dark Mode und Homescreen-Icon
 
-**Ergebnis:** `https://home.fritz.box` ist erreichbar, der Login funktioniert, und die CI ist grün.
+**Ergebnis:** `https://home-server.fritz.box` ist erreichbar, der Login funktioniert, und die CI ist grün.
 
 ### Phase 1: MVP Strom (Release v0.1)
 
@@ -227,7 +227,7 @@ Blockiert durch die offenen Punkte O1 bis O3.
 | O5     | Welche Modelle sind verbaut? (Loxone Miniserver Gen1/Gen2/Go, Rehau Nea Smart 1/2.0, Zusatzmodule)                                | Phase 4   | Mario        |
 | O6     | Bedeutet „Erweiterung API 1.0“ an der ISG, dass Modbus TCP freigeschaltet ist? (Prüfen: ISG-Weboberfläche → Profil/Einstellungen) | Phase 3   | Mario        |
 | ~~O7~~ | ~~Lädt nur Partei A an der Wallbox?~~ **Geklärt 18.11.2026: ja, nur Partei A.**                                                   | –         | –            |
-| O8     | Liegt der Hostname `home.fritz.box` fest? Er bestimmt die Passkey-Domain.                                                         | Phase 0   | Mario        |
+| O8     | Liegt der Hostname `home-server.fritz.box` fest? Er bestimmt die Passkey-Domain.                                                  | Phase 0   | Mario        |
 
 ## 8. Einkaufsliste
 

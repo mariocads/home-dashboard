@@ -1,6 +1,6 @@
-# Betrieb auf dem ThinkCentre
+# Betrieb auf dem Server
 
-Dieses Runbook richtet das Home Dashboard einmalig auf dem ThinkCentre (Ubuntu) ein. Danach erreichst du es unter `https://home.fritz.box`.
+Dieses Runbook richtet das Home Dashboard einmalig auf einem Server im Heimnetz ein. Danach erreichst du es unter `https://home-server.fritz.box`. Zielsystem ist der ThinkCentre (Ubuntu). Bis er da ist, läuft alles gleich auf einem Raspberry Pi (Raspberry Pi OS Lite 64-bit). Die Images gibt es für beide Architekturen, die Schritte sind identisch. Für den Pi gibt es eine Ergänzung (Abschnitt 1a), für den Wechsel einen eigenen Abschnitt [Umzug auf einen neuen Server](#8-umzug-auf-einen-neuen-server).
 
 ## 1. Server vorbereiten (einmalig)
 
@@ -15,13 +15,25 @@ docker network create proxy
 sudo mkdir -p /opt/stacks && sudo chown $USER /opt/stacks
 ```
 
+## 1a. Ergänzung Raspberry Pi
+
+Ein Pi 4 oder 5 mit mindestens 4 GB RAM reicht. Docker ist auf Raspberry Pi OS ebenfalls über `get.docker.com` installiert. Die übrigen Befehle aus Abschnitt 1 gelten unverändert.
+
+```bash
+uname -m                                   # muss aarch64 sein (64-bit), sonst passt das Image nicht
+docker info 2>&1 | grep -i 'no memory limit' || echo "Speicherlimits OK"
+```
+
+- Meldet `docker info` **No memory limit support**, ans Ende der einzigen Zeile in `/boot/firmware/cmdline.txt` ` cgroup_enable=memory` anhängen und neu starten. Ohne diese Einstellung läuft alles, nur die Speicherlimits aus `compose.yml` greifen nicht.
+- SD-Karten vertragen dauernde Schreibzugriffe schlecht. Besser ist ein Start von einer USB-SSD. Auf jeden Fall die Backups regelmäßig vom Pi wegkopieren (siehe Abschnitt 7), denn ein Dump auf derselben Karte hilft bei einem Kartendefekt nicht.
+
 ## 2. Hostnamen in der FRITZ!Box setzen
 
-1. In der FRITZ!Box unter **Heimnetz → Netzwerk → Netzwerkverbindungen** das ThinkCentre suchen und bearbeiten.
-2. Als Gerätenamen `home` eintragen und **„Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen“** aktivieren.
-3. Prüfen, z. B. vom Laptop aus: `ping home.fritz.box`
-4. Achtung: Ab der ersten Passkey-Registrierung darf sich der Name **nicht mehr ändern**, sonst werden die Passkeys ungültig.
-5. Das ThinkCentre muss im **Hauptnetz** hängen, nicht im Gastnetz.
+1. In der FRITZ!Box unter **Heimnetz → Netzwerk → Netzwerkverbindungen** den Server (Pi oder ThinkCentre) suchen und bearbeiten.
+2. Als Gerätenamen `home-server` eintragen und **„Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen“** aktivieren.
+3. Prüfen, z. B. vom Laptop aus: `ping home-server.fritz.box`
+4. Achtung: Ab der ersten Passkey-Registrierung darf sich der Name `home-server.fritz.box` **nicht mehr ändern**, sonst werden die Passkeys ungültig. Beim Umzug wandert der Name deshalb vom alten auf den neuen Server (Abschnitt 8).
+5. Der Server muss im **Hauptnetz** hängen, nicht im Gastnetz.
 
 ## 3. Reverse Proxy (Caddy) starten
 
@@ -61,8 +73,12 @@ cd /opt/stacks/home-dashboard
 cp .env.example .env
 sed -i "s|POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=')|" .env
 chmod 600 .env
-chmod +x deploy.sh backup.sh
+chmod +x deploy.sh backup.sh restore.sh
 ./deploy.sh
+
+# TimescaleDB-Version festhalten, damit ein späterer Server dieselbe Version bekommt (nötig für den Restore)
+v=$(docker compose exec -T db psql -U homedash -d homedash -Atc "select extversion from pg_extension where extname='timescaledb'")
+echo "TIMESCALE_TAG=${v}-pg16" >> .env && ./deploy.sh
 ```
 
 ## 5. Ersten Passkey registrieren (Setup-Token)
@@ -72,7 +88,7 @@ cd /opt/stacks/home-dashboard
 docker compose exec web node scripts/setup-token.ts
 ```
 
-1. Der Befehl gibt einen Link `https://home.fritz.box/setup?token=…` aus. Er ist 30 Minuten gültig und funktioniert nur einmal.
+1. Der Befehl gibt einen Link `https://home-server.fritz.box/setup?token=…` aus. Er ist 30 Minuten gültig und funktioniert nur einmal.
 2. Den Link am Handy öffnen, **Passkey anlegen** antippen und mit Face-ID bzw. Fingerabdruck bestätigen.
 3. Die **10 Recovery-Codes** sicher aufbewahren, z. B. im Passwortmanager. Sie werden nur dieses eine Mal angezeigt.
 4. Unter **Einstellungen** einen zweiten Passkey am Laptop hinzufügen.
@@ -139,17 +155,75 @@ crontab -e
 # 15 3 * * * /opt/stacks/home-dashboard/backup.sh >> /var/log/home-dashboard-backup.log 2>&1
 ```
 
-**Restore-Test** (mindestens einmal pro Quartal):
+Die Dumps liegen in `backups/`, also auf derselben Platte bzw. SD-Karte. Für einen Plattendefekt zusätzlich extern sichern: `RESTIC_REPOSITORY` in `.env` auf USB-Stick oder NAS setzen, oder die Dumps regelmäßig auf den Laptop holen:
 
 ```bash
-docker compose exec -T db pg_restore -U homedash -d homedash --clean --if-exists < backups/<datei>.dump
+scp '<user>@home-server.fritz.box:/opt/stacks/home-dashboard/backups/*.dump' .
 ```
 
-## 8. Fehlersuche
+**Restore** (Notfall oder Restore-Test, mindestens einmal pro Quartal). Die Datenbank wird dabei neu angelegt. `restore.sh` kümmert sich um die TimescaleDB-Besonderheiten:
+
+```bash
+cd /opt/stacks/home-dashboard
+./backup.sh                                  # frischer Dump vom aktuellen Stand
+./restore.sh backups/<datei>.dump            # Datenbank neu aus dem Dump
+./deploy.sh
+```
+
+## 8. Umzug auf einen neuen Server
+
+Zum Beispiel vom Raspberry Pi auf den ThinkCentre. Mitgenommen werden drei Dinge:
+
+| Was                         | Warum                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------- |
+| Datenbank-Dump              | Messwerte, Tarife, Passkeys, Einstellungen                                                |
+| `.env`                      | Datenbank-Passwort, Hostname, AMIS-Adresse und TimescaleDB-Version                        |
+| Caddy-Volume (`caddy_data`) | Die interne Zertifizierungsstelle: Das Root-Zertifikat auf Handy und Laptop bleibt gültig |
+
+Weil der Hostname `home-server.fritz.box` gleich bleibt, funktionieren die Passkeys weiter. Die Images holt der neue Server selbst passend zu seiner Architektur aus GHCR. Der Umzug dauert etwa 15 Minuten. In dieser Zeit fehlen die Live-Werte des AMIS-Lesers; die Viertelstundenwerte lassen sich später aus dem NetzOÖ-Export nachladen.
+
+**1. Neuen Server vorbereiten:** Abschnitt 1 ausführen und aus Abschnitt 3 die Dateien holen (`git clone …` bis `cp -r …`). Noch **nichts starten**.
+
+**2. Alten Server anhalten und sichern:**
+
+```bash
+cd /opt/stacks/home-dashboard
+docker compose stop collector web            # ab hier keine neuen Werte mehr
+./backup.sh
+dump=$(ls -t backups/homedash-*.dump | head -1)
+docker run --rm -v infra_caddy_data:/data -v "$PWD":/out alpine tar czf /out/caddy_data.tgz -C /data .
+scp .env caddy_data.tgz "$dump" <user>@<IP des neuen Servers>:/opt/stacks/home-dashboard/
+```
+
+**3. Auf dem neuen Server einspielen und starten:**
+
+```bash
+cd /opt/stacks/infra
+docker compose up --no-start                 # legt Container und Volume an
+docker run --rm -v infra_caddy_data:/data -v /opt/stacks/home-dashboard:/in alpine tar xzf /in/caddy_data.tgz -C /data
+docker compose up -d
+
+cd /opt/stacks/home-dashboard
+chmod 600 .env && chmod +x deploy.sh backup.sh restore.sh
+./restore.sh homedash-*.dump
+./deploy.sh
+rm caddy_data.tgz                            # enthält den privaten Schlüssel der Zertifizierungsstelle
+```
+
+**4. Namen in der FRITZ!Box umhängen** (unter **Heimnetz → Netzwerk → Netzwerkverbindungen**):
+
+1. Den alten Server umbenennen, z. B. in `pi`. Hat er im Betriebssystem ebenfalls den Hostnamen `home-server`, dort auch umbenennen (`sudo hostnamectl set-hostname pi`, dann neu starten), damit er sich den Namen nicht zurückholt.
+2. Der neue Server taucht mit demselben Hostnamen meist als `home-server-2` o. ä. auf. Ihn in `home-server` umbenennen und **„Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen“** aktivieren.
+3. Vom Laptop prüfen, dass `ping home-server.fritz.box` die neue IP zeigt. Unter Windows hilft bei Bedarf `ipconfig /flushdns`, am Handy kurz das WLAN aus- und einschalten.
+4. `https://home-server.fritz.box` öffnen: keine Zertifikatswarnung, Anmeldung mit Passkey, Daten bis zum Umzug vorhanden, Kachel „Leistung jetzt“ aktuell.
+
+**5. Alten Server stilllegen:** In `/opt/stacks/home-dashboard` und `/opt/stacks/infra` jeweils `docker compose down` ausführen. Die Volumes bleiben als Rückfallebene erhalten. Falls etwas schiefgeht: Namen in der FRITZ!Box zurückhängen und auf dem alten Server `docker compose up -d` (erst infra, dann home-dashboard).
+
+## 9. Fehlersuche
 
 | Symptom                                      | Prüfen                                                                                    |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `home.fritz.box` nicht erreichbar            | `docker compose -f /opt/stacks/infra/compose.yml logs caddy`, Gerätename in der FRITZ!Box |
+| `home-server.fritz.box` nicht erreichbar     | `docker compose -f /opt/stacks/infra/compose.yml logs caddy`, Gerätename in der FRITZ!Box |
 | Zertifikatswarnung                           | Root-Zertifikat installiert? Unter iOS zusätzlich „vollständig vertrauen“ aktiviert?      |
 | „Dieser Browser unterstützt keine Passkeys“  | Die Seite läuft nicht über vertrauenswürdiges HTTPS, siehe Root-Zertifikat                |
 | web nicht healthy                            | `docker compose logs web`, `docker compose ps`                                            |

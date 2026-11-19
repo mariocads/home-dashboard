@@ -1,7 +1,8 @@
 name: Release Images
 
 # Baut die Container-Images und legt sie in der GitHub Container Registry ab.
-# Das Deployment auf dem ThinkCentre holt sie per deploy.sh (Pull) – kein Runner im Heimnetz.
+# Der Server holt sie per deploy.sh (Pull), kein Runner im Heimnetz.
+# Multi-Arch: amd64 (ThinkCentre) und arm64 (Raspberry Pi) unter demselben Tag.
 on:
   push:
     branches: [main]
@@ -21,6 +22,9 @@ jobs:
         app: [web, collector]
     steps:
       - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
@@ -35,7 +39,8 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=sha,format=short
-      # Erst lokal bauen und scannen, nur ein sauberes Image wird gepusht.
+      # Erst lokal bauen und scannen (amd64; arm64 hat dieselben Alpine- und npm-Pakete),
+      # nur ein sauberes Image wird gepusht.
       - name: Build (lokal)
         uses: docker/build-push-action@v6
         with:
@@ -44,7 +49,6 @@ jobs:
           load: true
           tags: local/${{ matrix.app }}:scan
           cache-from: type=gha,scope=${{ matrix.app }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
       - name: Trivy-Scan (kritische/hohe Schwachstellen)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -57,7 +61,9 @@ jobs:
         with:
           context: .
           file: apps/${{ matrix.app }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}

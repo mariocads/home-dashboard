@@ -63,10 +63,10 @@ describe('access', () => {
 
 describe('config', () => {
   it('leitet RP-ID und Secure-Cookies aus ORIGIN ab', () => {
-    const c = loadConfig({ ORIGIN: 'https://home.fritz.box', DATABASE_URL: 'postgres://x' });
+    const c = loadConfig({ ORIGIN: 'https://home-server.fritz.box', DATABASE_URL: 'postgres://x' });
     expect(c).toMatchObject({
-      rpId: 'home.fritz.box',
-      origin: 'https://home.fritz.box',
+      rpId: 'home-server.fritz.box',
+      origin: 'https://home-server.fritz.box',
       secureCookies: true,
     });
   });

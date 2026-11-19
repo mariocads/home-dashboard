@@ -1,5 +1,5 @@
 # Home Dashboard – nur im Heimnetz (keine Portfreigabe in der FRITZ!Box).
-home.fritz.box {
+home-server.fritz.box {
 	tls internal
 	encode zstd gzip
 
