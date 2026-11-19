@@ -77,3 +77,26 @@ export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));
 export const formatTime = (iso: string) => time.format(new Date(iso));
 export const formatDay = (iso: string) => dayLong.format(new Date(iso));
 export const formatMonth = (iso: string) => monthYear.format(new Date(iso));
+
+export const eurFormat = new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' });
+/** Euro ohne Cent (Achsen, Kacheln ab 1.000 €) */
+export const eurShortFormat = new Intl.NumberFormat('de-AT', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+});
+export const formatEur = (v: number) => (Math.abs(v) >= 1000 ? eurShortFormat : eurFormat).format(v);
+/** Preise mit bis zu 4 Nachkommastellen (ct/kWh, Pauschalen) */
+export const priceFormat = new Intl.NumberFormat('de-AT', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 4,
+});
+export const pctFormat = new Intl.NumberFormat('de-AT', {
+  signDisplay: 'exceptZero',
+  maximumFractionDigits: 1,
+});
+
+/** Kalendertag JJJJ-MM-TT als „17.03.2026“ */
+export const formatDateKey = (key: string) => `${key.slice(8, 10)}.${key.slice(5, 7)}.${key.slice(0, 4)}`;
+/** Monat JJJJ-MM als „03/2026“ */
+export const formatMonthKey = (key: string) => `${key.slice(5, 7)}/${key.slice(0, 4)}`;

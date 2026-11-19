@@ -1,5 +1,6 @@
 import {
   boolean,
+  date,
   doublePrecision,
   index,
   integer,
@@ -9,6 +10,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -150,3 +152,59 @@ export const imports = pgTable('imports', {
   totalKwh: doublePrecision('total_kwh').notNull(),
   createdAt: createdAt(),
 });
+
+// ─── Tarife und Kosten ────────────────────────────────────────────────────────
+// Werte werden in der App erfasst oder aus einer lokalen JSON-Datei importiert, nie im Repo.
+
+/** Preiskomponente mit Gültigkeitszeitraum; Validierung im domain-Paket (parseTariffComponent). */
+export const tariffComponents = pgTable(
+  'tariff_components',
+  {
+    id: serial('id').primaryKey(),
+    payee: text('payee').notNull(),
+    /** energie | netz | abgaben */
+    category: text('category').notNull(),
+    name: text('name').notNull(),
+    /** ct_kwh | eur_year | eur_month */
+    unit: text('unit').notNull(),
+    priceNet: doublePrecision('price_net').notNull(),
+    vatPct: doublePrecision('vat_pct').notNull().default(20),
+    validFrom: date('valid_from', { mode: 'string' }).notNull(),
+    validTo: date('valid_to', { mode: 'string' }),
+    /** { months, fromHour, toHour } oder null */
+    window: jsonb('window').$type<{ months: number[]; fromHour: number; toHour: number } | null>(),
+    note: text('note'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('tariff_components_key').on(t.payee, t.name, t.validFrom)],
+);
+
+/** Monatliche Teilzahlungen (Akonto) je Zahlungsempfänger. */
+export const installments = pgTable(
+  'installments',
+  {
+    id: serial('id').primaryKey(),
+    payee: text('payee').notNull(),
+    amountGross: doublePrecision('amount_gross').notNull(),
+    /** JJJJ-MM */
+    fromMonth: text('from_month').notNull(),
+    toMonth: text('to_month'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('installments_key').on(t.payee, t.fromMonth)],
+);
+
+/** Erfasste Rechnungen für den Abgleich mit der Berechnung. */
+export const invoices = pgTable(
+  'invoices',
+  {
+    id: serial('id').primaryKey(),
+    payee: text('payee').notNull(),
+    fromDate: date('from_date', { mode: 'string' }).notNull(),
+    toDate: date('to_date', { mode: 'string' }).notNull(),
+    amountGross: doublePrecision('amount_gross').notNull(),
+    note: text('note'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('invoices_key').on(t.payee, t.fromDate, t.toDate)],
+);

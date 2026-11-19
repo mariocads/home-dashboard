@@ -102,6 +102,54 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page 
   await nav.getByRole('link', { name: 'Übersicht' }).click();
   await expect(page.getByTestId('tile-day')).toContainText('1 kWh');
   await expect(page.getByTestId('tile-month')).toContainText('Juli 2026 bisher');
+
+  // Kosten: ohne Tarife ein Hinweis; Tarifdatei übernehmen, eine Komponente im Formular ergänzen
+  await nav.getByRole('link', { name: 'Kosten' }).click();
+  await expect(page.getByRole('heading', { name: 'Noch keine Tarife' })).toBeVisible();
+  await page.getByRole('link', { name: 'Tarife erfassen' }).click();
+  const tariffFile = {
+    tariffs: [
+      {
+        payee: 'Lieferant',
+        category: 'energie',
+        name: 'Arbeitspreis',
+        unit: 'ct_kwh',
+        priceNet: 10,
+        validFrom: '2026-01-01',
+      },
+    ],
+    installments: [{ payee: 'Lieferant', amountGross: 50, fromMonth: '2026-07' }],
+  };
+  await page.getByLabel('JSON-Datei').setInputFiles({
+    name: 'tarife.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(tariffFile)),
+  });
+  await page.getByRole('button', { name: 'Übernehmen' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Übernommen: 1 Preiskomponenten' })).toBeVisible();
+  await expect(page.getByTestId('tariff-list').locator('li')).toHaveCount(1);
+  await expect(page.getByTestId('installment-list')).toContainText('€ 50,00 / Monat');
+
+  const newTariff = page.locator('details.new').filter({ hasText: 'Neue Preiskomponente' });
+  await newTariff.locator('summary').click();
+  await newTariff.getByLabel('Zahlungsempfänger').fill('Netz');
+  await newTariff.getByLabel('Bezeichnung').fill('Messentgelt');
+  await newTariff.getByLabel('Kategorie').selectOption('netz');
+  await newTariff.getByLabel('Einheit').selectOption('eur_month');
+  await newTariff.getByLabel('Preis', { exact: true }).fill('37,2');
+  await newTariff.getByLabel('Preis ist').selectOption('gross');
+  await newTariff.getByLabel('Gültig ab').fill('2026-01-01');
+  await newTariff.getByRole('button', { name: 'Anlegen' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Gespeichert' })).toBeVisible();
+  await expect(page.getByTestId('tariff-list')).toHaveCount(2);
+
+  // 1 kWh × 12 ct brutto + 1 Tag Messentgelt (37,20 € / 31 Tage) = 1,32 €
+  await page.getByRole('link', { name: '← Kosten' }).click();
+  await expect(page.getByTestId('cost-month')).toHaveText('Juli 2026');
+  await expect(page.getByTestId('cost-total')).toHaveText('€ 1,32');
+  await expect(page.getByTestId('cost-netz')).toHaveText('€ 1,20');
+  await nav.getByRole('link', { name: 'Übersicht' }).click();
+  await expect(page.getByTestId('tile-cost')).toContainText('€ 1,32');
   await page.goto('/strom/import');
 
   // Optional lokal: echten Export prüfen (Datei bleibt außerhalb des Repos), z. B. E2E_REAL_CSV=../../prep/x.csv
@@ -115,6 +163,13 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page 
     await expect(page.getByRole('status').filter({ hasText: 'Import abgeschlossen' })).toBeVisible({
       timeout: 60_000,
     });
+    // optional: echte Tarifdatei (bleibt außerhalb des Repos), z. B. E2E_REAL_TARIFFS=../../prep/seed/tarife.json
+    if (process.env.E2E_REAL_TARIFFS) {
+      await page.goto('/kosten/tarife');
+      await page.getByLabel('JSON-Datei').setInputFiles(process.env.E2E_REAL_TARIFFS);
+      await page.getByRole('button', { name: 'Übernehmen' }).click();
+      await expect(page.getByRole('status').filter({ hasText: 'Übernommen' })).toBeVisible();
+    }
     if (shots) {
       await page.screenshot({ path: `${shots}/import-done.png`, fullPage: true });
       for (const [name, path] of [
@@ -123,6 +178,9 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page 
         ['week', '/strom/week/2026-11-10'],
         ['month', '/strom/month/2026-10-01'],
         ['year', '/strom/year/2026-01-01'],
+        ['kosten', '/kosten'],
+        ['kosten-okt', '/kosten/2026-10'],
+        ['tarife', '/kosten/tarife'],
       ] as const) {
         await page.goto(path);
         await page.screenshot({ path: `${shots}/strom-${name}.png`, fullPage: true });

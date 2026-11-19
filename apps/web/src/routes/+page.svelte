@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { formatDay, formatKwh, formatMonth, formatTime } from '#lib/format.ts';
+  import { formatDay, formatEur, formatKwh, formatMonth, formatTime, priceFormat } from '#lib/format.ts';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -71,11 +71,21 @@
           : 'Prognose ab einem vollen Tag'}
       </span>
     </a>
-    <article class="card tile">
-      <span class="label">Kosten Monat</span>
-      <span class="value">–</span>
-      <span class="hint muted">ab Phase 1 (Tarife)</span>
-    </article>
+    <a class="card tile link" href={resolve('/kosten')} data-testid="tile-cost">
+      {#if data.cost}
+        <span class="label">
+          Kosten {formatMonth(data.cost.monthKey + 'T12:00:00Z')}{data.cost.complete ? '' : ' bisher'}
+        </span>
+        <span class="value">{formatEur(data.cost.gross)}</span>
+        <span class="hint muted">
+          {data.cost.ctPerKwh !== null ? `Ø ${priceFormat.format(data.cost.ctPerKwh)} ct/kWh` : 'brutto'}
+        </span>
+      {:else}
+        <span class="label">Kosten Monat</span>
+        <span class="value">–</span>
+        <span class="hint muted">Tarife erfassen</span>
+      {/if}
+    </a>
     <article class="card tile">
       <span class="label">Wärmepumpe</span>
       <span class="value">–</span>

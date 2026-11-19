@@ -1,6 +1,6 @@
-import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import type { Db } from './client.ts';
-import { imports, meters, readings, settings } from './schema.ts';
+import { imports, installments, invoices, meters, readings, settings, tariffComponents } from './schema.ts';
 
 // Gemeinsame Datenzugriffe für web und collector.
 
@@ -149,4 +149,122 @@ export async function latestReading(
 export async function findMeterId(db: Db, slug: string): Promise<number | null> {
   const [row] = await db.select({ id: meters.id }).from(meters).where(eq(meters.slug, slug));
   return row?.id ?? null;
+}
+
+// ─── Tarife, Teilzahlungen, Rechnungen ────────────────────────────────────────
+
+export type TariffRow = typeof tariffComponents.$inferSelect;
+export type NewTariff = Omit<typeof tariffComponents.$inferInsert, 'id' | 'createdAt'>;
+export type InstallmentRow = typeof installments.$inferSelect;
+export type NewInstallment = Omit<typeof installments.$inferInsert, 'id' | 'createdAt'>;
+export type InvoiceRow = typeof invoices.$inferSelect;
+export type NewInvoice = Omit<typeof invoices.$inferInsert, 'id' | 'createdAt'>;
+
+export async function listTariffs(db: Db): Promise<TariffRow[]> {
+  return db
+    .select()
+    .from(tariffComponents)
+    .orderBy(
+      asc(tariffComponents.payee),
+      asc(tariffComponents.validFrom),
+      asc(tariffComponents.category),
+      asc(tariffComponents.id),
+    );
+}
+
+/** Neu anlegen (ohne id) oder ändern. Wirft bei doppeltem Schlüssel (Empfänger, Bezeichnung, Gültig ab). */
+export async function saveTariff(db: Db, value: NewTariff, id?: number): Promise<TariffRow> {
+  const [row] = id
+    ? await db.update(tariffComponents).set(value).where(eq(tariffComponents.id, id)).returning()
+    : await db.insert(tariffComponents).values(value).returning();
+  if (!row) throw new Error('Tarif nicht gefunden');
+  return row;
+}
+
+export async function deleteTariff(db: Db, id: number): Promise<void> {
+  await db.delete(tariffComponents).where(eq(tariffComponents.id, id));
+}
+
+export async function listInstallments(db: Db): Promise<InstallmentRow[]> {
+  return db.select().from(installments).orderBy(asc(installments.payee), asc(installments.fromMonth));
+}
+
+export async function saveInstallment(db: Db, value: NewInstallment, id?: number): Promise<InstallmentRow> {
+  const [row] = id
+    ? await db.update(installments).set(value).where(eq(installments.id, id)).returning()
+    : await db.insert(installments).values(value).returning();
+  if (!row) throw new Error('Teilzahlung nicht gefunden');
+  return row;
+}
+
+export async function deleteInstallment(db: Db, id: number): Promise<void> {
+  await db.delete(installments).where(eq(installments.id, id));
+}
+
+export async function listInvoices(db: Db): Promise<InvoiceRow[]> {
+  return db.select().from(invoices).orderBy(desc(invoices.fromDate), asc(invoices.payee));
+}
+
+export async function saveInvoice(db: Db, value: NewInvoice, id?: number): Promise<InvoiceRow> {
+  const [row] = id
+    ? await db.update(invoices).set(value).where(eq(invoices.id, id)).returning()
+    : await db.insert(invoices).values(value).returning();
+  if (!row) throw new Error('Rechnung nicht gefunden');
+  return row;
+}
+
+export async function deleteInvoice(db: Db, id: number): Promise<void> {
+  await db.delete(invoices).where(eq(invoices.id, id));
+}
+
+/**
+ * Übernimmt eine (lokale) Tarifdatei in einer Transaktion. Vorhandene Einträge mit gleichem Schlüssel
+ * werden überschrieben, alle anderen bleiben unverändert.
+ */
+export async function importTariffData(
+  db: Db,
+  data: { tariffs: NewTariff[]; installments: NewInstallment[]; invoices: NewInvoice[] },
+): Promise<{ tariffs: number; installments: number; invoices: number }> {
+  await db.transaction(async (tx) => {
+    for (const t of data.tariffs) {
+      await tx
+        .insert(tariffComponents)
+        .values(t)
+        .onConflictDoUpdate({
+          target: [tariffComponents.payee, tariffComponents.name, tariffComponents.validFrom],
+          set: {
+            category: t.category,
+            unit: t.unit,
+            priceNet: t.priceNet,
+            vatPct: t.vatPct,
+            validTo: t.validTo ?? null,
+            window: t.window ?? null,
+            note: t.note ?? null,
+          },
+        });
+    }
+    for (const i of data.installments) {
+      await tx
+        .insert(installments)
+        .values(i)
+        .onConflictDoUpdate({
+          target: [installments.payee, installments.fromMonth],
+          set: { amountGross: i.amountGross, toMonth: i.toMonth ?? null },
+        });
+    }
+    for (const v of data.invoices) {
+      await tx
+        .insert(invoices)
+        .values(v)
+        .onConflictDoUpdate({
+          target: [invoices.payee, invoices.fromDate, invoices.toDate],
+          set: { amountGross: v.amountGross, note: v.note ?? null },
+        });
+    }
+  });
+  return {
+    tariffs: data.tariffs.length,
+    installments: data.installments.length,
+    invoices: data.invoices.length,
+  };
 }

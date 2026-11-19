@@ -87,6 +87,40 @@ docker compose exec web node scripts/setup-token.ts
 
 Die Exportdatei enthält den Zählpunkt im Namen. Sie wird nur gelesen, nicht gespeichert.
 
+### Tarife übernehmen
+
+Preise, Teilzahlungen und Rechnungen liegen nur in der Datenbank und in einer lokalen JSON-Datei (z. B. `prep/seed/tarife.json`), nie im Repo.
+
+1. In der App unter **Kosten → Tarife verwalten → Tarifdatei** die JSON-Datei wählen und **Übernehmen**. Einträge mit gleichem Empfänger, gleicher Bezeichnung und gleichem Beginn werden überschrieben, andere bleiben.
+2. Änderungen später direkt in der App vornehmen. **Sichern** lädt den aktuellen Stand als `tarife.json` herunter; die Datei außerhalb des Repos ablegen.
+3. Neue Preise (z. B. Netzentgelte ab 1. Jänner) als neue Komponente mit eigenem **Gültig ab** anlegen und bei der alten **Gültig bis** setzen.
+
+Format der Datei (alle Felder wie im Formular; Preis entweder `priceNet` oder `priceGross`, USt Standard 20 %):
+
+```json
+{
+  "tariffs": [
+    {
+      "payee": "Lieferant",
+      "category": "energie",
+      "name": "Arbeitspreis",
+      "unit": "ct_kwh",
+      "priceGross": 12,
+      "validFrom": "2026-01-01",
+      "validTo": null,
+      "window": { "months": [4, 5, 6, 7, 8, 9], "fromHour": 10, "toHour": 16 },
+      "note": "optional"
+    }
+  ],
+  "installments": [{ "payee": "Lieferant", "amountGross": 100, "fromMonth": "2026-04", "toMonth": null }],
+  "invoices": [
+    { "payee": "Lieferant", "fromDate": "2026-01-01", "toDate": "2026-12-31", "amountGross": 1200 }
+  ]
+}
+```
+
+`category` ist `energie`, `netz` oder `abgaben`; `unit` ist `ct_kwh`, `eur_year` oder `eur_month`. `window` gibt es nur für `ct_kwh` und ist optional.
+
 ## 6. Updates und Rollback
 
 ```bash

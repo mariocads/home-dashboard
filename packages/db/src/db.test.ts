@@ -3,14 +3,24 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, type DbHandle } from './client.ts';
 import { runMigrations } from './migrate.ts';
 import {
+  deleteInstallment,
+  deleteInvoice,
+  deleteTariff,
   ensureMeter,
   findImportByHash,
   getSetting,
+  importTariffData,
   insertReadings,
+  listInstallments,
+  listInvoices,
+  listTariffs,
   latestReading,
   listImports,
   readingsInRange,
   recordImport,
+  saveInstallment,
+  saveInvoice,
+  saveTariff,
   setSetting,
   upsertReadings,
 } from './repo.ts';
@@ -152,5 +162,112 @@ describe('Import-Daten', () => {
     const second = await recordImport(handle.db, { ...entry, contentHash: 'def' });
     expect((await findImportByHash(handle.db, 'abc'))?.id).toBe(first.id);
     expect((await listImports(handle.db)).map((i) => i.id)).toEqual([second.id, first.id]);
+  });
+});
+
+describe('Tarife, Teilzahlungen, Rechnungen', () => {
+  let handle: DbHandle;
+
+  beforeAll(async () => {
+    handle = createDb(url);
+    await runMigrations(handle);
+  });
+
+  afterAll(async () => {
+    await handle?.close();
+  });
+
+  const tariff = {
+    payee: 'Lieferant',
+    category: 'energie',
+    name: 'Arbeitspreis',
+    unit: 'ct_kwh',
+    priceNet: 10,
+    vatPct: 20,
+    validFrom: '2026-01-01',
+    validTo: null,
+    window: null,
+    note: null,
+  };
+
+  it('anlegen, ändern, doppelter Schlüssel, löschen', async () => {
+    const t = await saveTariff(handle.db, tariff);
+    expect(t).toMatchObject({ validFrom: '2026-01-01', validTo: null });
+    const changed = await saveTariff(
+      handle.db,
+      { ...tariff, priceNet: 11, window: { months: [4], fromHour: 10, toHour: 16 } },
+      t.id,
+    );
+    expect(changed).toMatchObject({
+      id: t.id,
+      priceNet: 11,
+      window: { months: [4], fromHour: 10, toHour: 16 },
+    });
+    await expect(saveTariff(handle.db, tariff)).rejects.toThrow();
+    await expect(saveTariff(handle.db, tariff, 999_999)).rejects.toThrow(/nicht gefunden/);
+    await deleteTariff(handle.db, t.id);
+    expect(await listTariffs(handle.db)).toEqual([]);
+
+    const i = await saveInstallment(handle.db, { payee: 'Netz', amountGross: 80, fromMonth: '2026-01' });
+    await saveInstallment(
+      handle.db,
+      { payee: 'Netz', amountGross: 90, fromMonth: '2026-01', toMonth: null },
+      i.id,
+    );
+    expect((await listInstallments(handle.db))[0]).toMatchObject({ amountGross: 90, toMonth: null });
+    await expect(
+      saveInstallment(handle.db, { payee: 'x', amountGross: 1, fromMonth: '2026-01' }, 999_999),
+    ).rejects.toThrow();
+    await deleteInstallment(handle.db, i.id);
+
+    const v = await saveInvoice(handle.db, {
+      payee: 'Netz',
+      fromDate: '2026-01-01',
+      toDate: '2026-12-31',
+      amountGross: 2000,
+    });
+    await saveInvoice(
+      handle.db,
+      { payee: 'Netz', fromDate: '2026-01-01', toDate: '2026-12-31', amountGross: 2100 },
+      v.id,
+    );
+    expect((await listInvoices(handle.db))[0]).toMatchObject({ amountGross: 2100, toDate: '2026-12-31' });
+    await expect(
+      saveInvoice(
+        handle.db,
+        { payee: 'x', fromDate: '2026-01-01', toDate: '2026-01-02', amountGross: 1 },
+        999_999,
+      ),
+    ).rejects.toThrow();
+    await deleteInvoice(handle.db, v.id);
+    expect(await listInvoices(handle.db)).toEqual([]);
+  });
+
+  it('Import überschreibt gleiche Schlüssel und lässt andere stehen', async () => {
+    const other = await saveTariff(handle.db, {
+      ...tariff,
+      name: 'Grundpreis',
+      unit: 'eur_year',
+      priceNet: 20,
+    });
+    const data = {
+      tariffs: [tariff],
+      installments: [{ payee: 'Netz', amountGross: 80, fromMonth: '2026-01', toMonth: null }],
+      invoices: [{ payee: 'Netz', fromDate: '2026-01-01', toDate: '2026-12-31', amountGross: 1, note: 'a' }],
+    };
+    expect(await importTariffData(handle.db, data)).toEqual({ tariffs: 1, installments: 1, invoices: 1 });
+    await importTariffData(handle.db, {
+      tariffs: [{ ...tariff, priceNet: 12 }],
+      installments: [{ ...data.installments[0]!, amountGross: 90 }],
+      invoices: [{ ...data.invoices[0]!, amountGross: 2, note: null }],
+    });
+    const tariffs = await listTariffs(handle.db);
+    expect(tariffs.map((t) => [t.name, t.priceNet])).toEqual([
+      ['Grundpreis', 20],
+      ['Arbeitspreis', 12],
+    ]);
+    expect(tariffs.find((t) => t.id === other.id)).toBeDefined();
+    expect(await listInstallments(handle.db)).toMatchObject([{ amountGross: 90 }]);
+    expect(await listInvoices(handle.db)).toMatchObject([{ amountGross: 2, note: null }]);
   });
 });

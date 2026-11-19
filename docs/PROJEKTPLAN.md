@@ -134,22 +134,27 @@ Gesamt-Coverage mindestens 80 %. Die CI bricht ab, wenn ein Schwellenwert unters
 
 ### Phase 1: MVP Strom (Release v0.1)
 
-> **Stand 19.11.2026:** CSV-Import und Strom-Dashboards sind fertig. Offen in Phase 1: Tarife, Kostenberechnung und Rechnungsabgleich.
+> **Stand 19.11.2026:** CSV-Import, Strom-Dashboards, Tarife, Kostenberechnung und Rechnungsabgleich sind fertig. Offen: die Netz-OÖ-Preise mit der ersten Netzrechnung prüfen (bisher aus SNE-V 2026 und Vergleichsportalen) und die erste Rechnung erfassen.
 
 - ~~NetzOÖ-CSV-Import (15-Minuten-Werte) per Upload in der App, mit Vorschau, Duplikat- und Lückenerkennung und Import-Protokoll~~
   - Gespeichert als `energy_import_kwh` am Hauptzähler, Quelle `netzooe_csv`. Geänderte Werte (z. B. Ersatzwert → Messwert) werden überschrieben.
   - Das Protokoll speichert Zeitraum, Zählungen und den SHA-256 der Datei, aber nicht den Dateinamen (Zählpunkt).
   - Zeitzonen-Logik `Europe/Vienna` ohne Bibliothek, gegen `Intl` property-getestet.
 - Historie seit dem Einbau des Smartmeters importieren
-- Tarifverwaltung: Gutmann DISK Strom bis 16.03.2026, E.ON ÖkoStrom Basis ab 17.03.2026, NetzOÖ-Netzentgelte, Abgaben und USt
-- Kostenberechnung im `domain`-Paket. Ein Rechnungsabgleich zeigt erfasste Monatsrechnung gegen berechneten Wert mit Abweichung in %.
+- ~~Tarifverwaltung: Gutmann DISK Strom bis 16.03.2026, E.ON ÖkoStrom Basis ab 17.03.2026, NetzOÖ-Netzentgelte, Abgaben und USt~~ (`/kosten/tarife`)
+  - Preiskomponenten je Zahlungsempfänger mit Gültigkeit, Einheit ct/kWh, €/Jahr oder €/Monat, USt je Komponente; Preise netto gespeichert.
+  - Optionales Zeitfenster (Monate, Stunden) für Abschläge wie den Sommer-Niedertarif der SNE-V 2026 (April–September, 10–16 Uhr), als negativer Preis.
+  - Die Werte stehen nur in der Datenbank und in einer lokalen JSON-Datei (`prep/seed/tarife.json`), die in der App übernommen und gesichert wird. Nichts davon im Repo.
+- ~~Kostenberechnung im `domain`-Paket~~ (`computeCosts`): Arbeitspreise je Viertelstunde, Pauschalen anteilig je Tag mit Messwerten, Zeilen auf Cent gerundet.
+- ~~Rechnungsabgleich~~: erfasste Rechnung (Zeitraum, Betrag brutto) gegen berechneten Wert desselben Empfängers, Abweichung in % und Datenabdeckung.
+- ~~Teilzahlungen gegen Berechnung~~: Saldo je Empfänger über die vollständigen Monate des Jahres (Hinweis auf Guthaben oder Nachzahlung).
 - Dashboards:
   - ~~Übersicht: heute, aktueller Monat, Monatsprognose~~ (letzter Tag mit Daten; Prognose linear über die abgedeckten Tage)
   - ~~Lastprofil mit Tag-, Woche-, Monat- und Jahr-Umschaltung~~ (`/strom/[view]/[date]`)
   - ~~Grundlast~~ – als **Tagesminimum** statt Nachtminimum: nächtliches Laden des Autos hat das Nachtminimum auf 7–13 kW verfälscht
   - ~~Heatmap Wochentag × Uhrzeit~~ (Monat und Jahr)
   - ~~Vergleich zum Vormonat und Vorjahr~~ (bei laufender Periode gleich langer Zeitraum)
-  - Kosten pro Monat nach Komponenten (mit den Tarifen)
+  - ~~Kosten pro Monat nach Komponenten (mit den Tarifen)~~ (`/kosten/[month]`, Kachel „Kosten Monat“)
   - Tage ohne NetzOÖ-Export werden aus den AMIS-Zählerständen ergänzt; NetzOÖ hat Vorrang.
 
 **Ergebnis:** Vollständige Strom- und Kostentransparenz aus echten Daten, mit der Rechnung abgleichbar.

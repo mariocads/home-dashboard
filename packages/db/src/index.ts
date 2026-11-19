@@ -1,12 +1,24 @@
 export { createDb, type Db, type DbHandle, type Schema } from './client.ts';
 export { runMigrations } from './migrate.ts';
 export {
+  deleteInstallment,
+  deleteInvoice,
+  deleteTariff,
   ensureMeter,
   findImportByHash,
   findMeterId,
   getSetting,
   type ImportRecord,
+  importTariffData,
   insertReadings,
+  type InstallmentRow,
+  type InvoiceRow,
+  listInstallments,
+  listInvoices,
+  listTariffs,
+  type NewInstallment,
+  type NewInvoice,
+  type NewTariff,
   latestReading,
   listImports,
   type MeterDefinition,
@@ -15,7 +27,11 @@ export {
   readingsInRange,
   type ReadingValue,
   recordImport,
+  saveInstallment,
+  saveInvoice,
+  saveTariff,
   setSetting,
+  type TariffRow,
   upsertReadings,
 } from './repo.ts';
 export * as schema from './schema.ts';
