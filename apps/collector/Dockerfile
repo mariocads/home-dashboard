@@ -1,5 +1,5 @@
 # Build-Kontext: Repository-Wurzel (docker build -f apps/collector/Dockerfile .)
-FROM node:24-alpine
+FROM node:26-alpine
 RUN npm install -g pnpm@9.15.9
 WORKDIR /app
 ENV NODE_ENV=production \
