@@ -134,7 +134,7 @@ Gesamt-Coverage mindestens 80 %. Die CI bricht ab, wenn ein Schwellenwert unters
 
 ### Phase 1: MVP Strom (Release v0.1)
 
-> **Stand 19.11.2026:** Der CSV-Import ist fertig (Strom → „NetzOÖ-Export importieren“). Der echte Export (25.03.–17.11.2026) lässt sich fehlerfrei importieren. Als Nächstes kommen die Dashboards, danach Tarife und Kosten.
+> **Stand 19.11.2026:** CSV-Import und Strom-Dashboards sind fertig. Offen in Phase 1: Tarife, Kostenberechnung und Rechnungsabgleich.
 
 - ~~NetzOÖ-CSV-Import (15-Minuten-Werte) per Upload in der App, mit Vorschau, Duplikat- und Lückenerkennung und Import-Protokoll~~
   - Gespeichert als `energy_import_kwh` am Hauptzähler, Quelle `netzooe_csv`. Geänderte Werte (z. B. Ersatzwert → Messwert) werden überschrieben.
@@ -144,12 +144,13 @@ Gesamt-Coverage mindestens 80 %. Die CI bricht ab, wenn ein Schwellenwert unters
 - Tarifverwaltung: Gutmann DISK Strom bis 16.03.2026, E.ON ÖkoStrom Basis ab 17.03.2026, NetzOÖ-Netzentgelte, Abgaben und USt
 - Kostenberechnung im `domain`-Paket. Ein Rechnungsabgleich zeigt erfasste Monatsrechnung gegen berechneten Wert mit Abweichung in %.
 - Dashboards:
-  - Übersicht: heute, aktueller Monat, Monatsprognose
-  - Lastprofil mit Tag-, Woche-, Monat- und Jahr-Umschaltung
-  - Grundlast (Nachtminimum)
-  - Heatmap Wochentag × Uhrzeit
-  - Vergleich zum Vormonat und Vorjahr
-  - Kosten pro Monat nach Komponenten
+  - ~~Übersicht: heute, aktueller Monat, Monatsprognose~~ (letzter Tag mit Daten; Prognose linear über die abgedeckten Tage)
+  - ~~Lastprofil mit Tag-, Woche-, Monat- und Jahr-Umschaltung~~ (`/strom/[view]/[date]`)
+  - ~~Grundlast~~ – als **Tagesminimum** statt Nachtminimum: nächtliches Laden des Autos hat das Nachtminimum auf 7–13 kW verfälscht
+  - ~~Heatmap Wochentag × Uhrzeit~~ (Monat und Jahr)
+  - ~~Vergleich zum Vormonat und Vorjahr~~ (bei laufender Periode gleich langer Zeitraum)
+  - Kosten pro Monat nach Komponenten (mit den Tarifen)
+  - Tage ohne NetzOÖ-Export werden aus den AMIS-Zählerständen ergänzt; NetzOÖ hat Vorrang.
 
 **Ergebnis:** Vollständige Strom- und Kostentransparenz aus echten Daten, mit der Rechnung abgleichbar.
 

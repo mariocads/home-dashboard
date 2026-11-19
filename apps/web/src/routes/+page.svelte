@@ -1,5 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { resolve } from '$app/paths';
+  import { formatDay, formatKwh, formatMonth, formatTime } from '#lib/format.ts';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -25,11 +27,21 @@
   </header>
 
   <section class="grid" aria-label="Kennzahlen">
-    <article class="card tile">
-      <span class="label">Strom heute</span>
-      <span class="value">–</span>
-      <span class="hint muted">ab Phase 1 (NetzOÖ-Import)</span>
-    </article>
+    <a class="card tile link" href={resolve('/strom')} data-testid="tile-day">
+      {#if data.overview}
+        <span class="label">
+          {data.overview.isToday ? 'Strom heute' : `Strom ${formatDay(data.overview.dayKey + 'T12:00:00Z')}`}
+        </span>
+        <span class="value">{formatKwh(data.overview.dayKwh)} kWh</span>
+        <span class="hint muted">
+          {data.overview.dayComplete ? 'ganzer Tag' : `bis ${formatTime(data.overview.dataEnd)}`}
+        </span>
+      {:else}
+        <span class="label">Strom heute</span>
+        <span class="value">–</span>
+        <span class="hint muted">NetzOÖ-Export importieren</span>
+      {/if}
+    </a>
     <article class="card tile" data-testid="tile-power">
       <span class="label">Leistung jetzt</span>
       {#if data.power}
@@ -42,6 +54,23 @@
         <span class="hint muted">noch keine Daten vom AMIS-Leser</span>
       {/if}
     </article>
+    <a
+      class="card tile link"
+      href={data.overview
+        ? resolve('/strom/[view]/[date]', { view: 'month', date: data.overview.monthKey })
+        : resolve('/strom')}
+      data-testid="tile-month"
+    >
+      <span class="label">
+        {data.overview ? formatMonth(data.overview.monthKey + 'T12:00:00Z') : 'Monat'} bisher
+      </span>
+      <span class="value">{data.overview ? `${formatKwh(data.overview.monthKwh)} kWh` : '–'}</span>
+      <span class="hint muted">
+        {data.overview?.forecastKwh != null
+          ? `Prognose ${formatKwh(data.overview.forecastKwh)} kWh`
+          : 'Prognose ab einem vollen Tag'}
+      </span>
+    </a>
     <article class="card tile">
       <span class="label">Kosten Monat</span>
       <span class="value">–</span>
@@ -63,13 +92,19 @@
     min-height: 112px;
   }
 
+  .link {
+    color: inherit;
+    text-decoration: none;
+  }
+
   .label {
     font-size: 0.85rem;
     color: var(--text-muted);
   }
 
   .value {
-    font-size: 1.75rem;
+    font-size: 1.6rem;
+    white-space: nowrap;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }

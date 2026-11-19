@@ -89,6 +89,21 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page 
   await expect(page.getByText('Diese Datei wurde bereits am')).toBeVisible();
   await expect(page.getByTestId('import-submit')).toBeDisabled();
 
+  // Strom-Auswertung: jüngster Tag mit Daten, dann Monatsansicht; Übersicht zeigt Tag und Monat
+  await nav.getByRole('link', { name: 'Strom' }).click();
+  await expect(page.getByTestId('period-label')).toContainText('1. Juli 2026');
+  await expect(page.getByTestId('stat-total')).toHaveText('1 kWh');
+  await expect(page.getByTestId('profile-chart').locator('path.bar')).toHaveCount(96);
+  await page.getByRole('navigation', { name: 'Zeitraum' }).getByRole('link', { name: 'Monat' }).click();
+  await expect(page.getByTestId('period-label')).toHaveText('Juli 2026');
+  await expect(page).toHaveURL(/\/strom\/month\/2026-07-01$/);
+  await page.getByRole('link', { name: 'Vorheriger Zeitraum' }).click();
+  await expect(page.getByText('Keine Daten in diesem Zeitraum')).toBeVisible();
+  await nav.getByRole('link', { name: 'Übersicht' }).click();
+  await expect(page.getByTestId('tile-day')).toContainText('1 kWh');
+  await expect(page.getByTestId('tile-month')).toContainText('Juli 2026 bisher');
+  await page.goto('/strom/import');
+
   // Optional lokal: echten Export prüfen (Datei bleibt außerhalb des Repos), z. B. E2E_REAL_CSV=../../prep/x.csv
   if (process.env.E2E_REAL_CSV) {
     await page.getByLabel('CSV-Datei').setInputFiles(process.env.E2E_REAL_CSV);
@@ -100,7 +115,19 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page 
     await expect(page.getByRole('status').filter({ hasText: 'Import abgeschlossen' })).toBeVisible({
       timeout: 60_000,
     });
-    if (shots) await page.screenshot({ path: `${shots}/import-done.png`, fullPage: true });
+    if (shots) {
+      await page.screenshot({ path: `${shots}/import-done.png`, fullPage: true });
+      for (const [name, path] of [
+        ['overview', '/'],
+        ['day', '/strom'],
+        ['week', '/strom/week/2026-11-10'],
+        ['month', '/strom/month/2026-10-01'],
+        ['year', '/strom/year/2026-01-01'],
+      ] as const) {
+        await page.goto(path);
+        await page.screenshot({ path: `${shots}/strom-${name}.png`, fullPage: true });
+      }
+    }
   }
   await nav.getByRole('link', { name: 'Einstellungen' }).click();
 

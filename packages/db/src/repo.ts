@@ -145,3 +145,8 @@ export async function latestReading(
     .limit(1);
   return row ?? null;
 }
+
+export async function findMeterId(db: Db, slug: string): Promise<number | null> {
+  const [row] = await db.select({ id: meters.id }).from(meters).where(eq(meters.slug, slug));
+  return row?.id ?? null;
+}

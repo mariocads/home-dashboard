@@ -3,6 +3,7 @@ export { runMigrations } from './migrate.ts';
 export {
   ensureMeter,
   findImportByHash,
+  findMeterId,
   getSetting,
   type ImportRecord,
   insertReadings,

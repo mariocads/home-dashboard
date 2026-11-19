@@ -17,6 +17,16 @@
   --gap: 16px;
   --nav-h: 64px;
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Diagramme: Balken in der Akzentfarbe, Raster dezent, Heatmap als einfarbige Blau-Skala (hell → dunkel) */
+  --chart-bar: var(--accent);
+  --chart-grid: #e6e9ee;
+  --seq-0: #cde2fb;
+  --seq-1: #9ec5f4;
+  --seq-2: #6da7ec;
+  --seq-3: #3987e5;
+  --seq-4: #256abf;
+  --seq-5: #184f95;
+  --seq-6: #0d366b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,6 +40,15 @@
     --accent: #4c8dff;
     --ok: #3fb950;
     --danger: #f85149;
+    --chart-grid: #262b34;
+    /* im Dunkelmodus: wenig = dunkel (nahe der Fläche), viel = hell */
+    --seq-0: #0d366b;
+    --seq-1: #184f95;
+    --seq-2: #256abf;
+    --seq-3: #3987e5;
+    --seq-4: #6da7ec;
+    --seq-5: #9ec5f4;
+    --seq-6: #cde2fb;
   }
 }
 
