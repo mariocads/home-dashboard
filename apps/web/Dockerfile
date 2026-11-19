@@ -1,5 +1,5 @@
 # Build-Kontext: Repository-Wurzel (docker build -f apps/web/Dockerfile .)
-FROM node:24-alpine AS base
+FROM node:26-alpine AS base
 RUN npm install -g pnpm@9.15.9
 WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
