@@ -17,11 +17,13 @@ import {
   latestReading,
   listImports,
   readingsInRange,
+  readingTs,
   recordImport,
   saveInstallment,
   saveInvoice,
   saveTariff,
   setSetting,
+  upsertDerivedReadings,
   upsertReadings,
 } from './repo.ts';
 import { meters, readings, sessions, users } from './schema.ts';
@@ -141,6 +143,36 @@ describe('Import-Daten', () => {
     const stored = await readingsInRange(handle.db, id, 'energy_import_kwh', rows[0]!.ts, rows[24]!.ts);
     expect(stored).toHaveLength(24);
     expect(stored[3]).toEqual({ ts: rows[3]!.ts, value: 99, status: 'SUBSTITUTE' });
+  });
+
+  it('abgeleitete Werte: andere Quelle hat Vorrang, eigene werden aktualisiert; ältester/jüngster Zeitpunkt', async () => {
+    const id = await ensureMeter(handle.db, {
+      slug: 'derived-test',
+      name: 'T',
+      kind: 'electricity',
+      unit: 'kWh',
+    });
+    const q = 'energy_import_kwh';
+    const t = (i: number) => new Date(Date.UTC(2026, 7, 1) + i * 900_000);
+    expect(await readingTs(handle.db, id, q, 'last')).toBeNull();
+    await upsertReadings(handle.db, id, q, 'netzooe_csv', [{ ts: t(1), value: 0.3, status: 'VALID' }]);
+
+    const derived = [0, 1, 2].map((i) => ({ ts: t(i), value: 0.5, status: 'AMIS' }));
+    expect(await upsertDerivedReadings(handle.db, id, q, 'amis', derived, 2)).toBe(2);
+    expect(
+      await upsertDerivedReadings(handle.db, id, q, 'amis', [{ ts: t(2), value: 0.6, status: 'AMIS' }]),
+    ).toBe(1);
+    expect(await upsertDerivedReadings(handle.db, id, q, 'amis', [])).toBe(0);
+
+    const stored = await readingsInRange(handle.db, id, q, t(0), t(3));
+    expect(stored.map((r) => [r.value, r.status])).toEqual([
+      [0.5, 'AMIS'],
+      [0.3, 'VALID'],
+      [0.6, 'AMIS'],
+    ]);
+    expect(await readingTs(handle.db, id, q, 'first')).toEqual(t(0));
+    expect(await readingTs(handle.db, id, q, 'last')).toEqual(t(2));
+    expect(await readingTs(handle.db, id, q, 'last', 'netzooe_csv')).toEqual(t(1));
   });
 
   it('Import-Protokoll: anlegen, nach Hash finden, neueste zuerst', async () => {

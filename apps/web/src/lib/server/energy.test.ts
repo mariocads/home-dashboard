@@ -1,10 +1,18 @@
-import { createDb, type DbHandle, ensureMeter, insertReadings, runMigrations, upsertReadings } from '@hd/db';
+import {
+  createDb,
+  type DbHandle,
+  ensureMeter,
+  insertReadings,
+  runMigrations,
+  upsertDerivedReadings,
+  upsertReadings,
+} from '@hd/db';
 import { INTERVAL_MS, INTERVAL_QUANTITY, MAIN_METER, QUANTITY } from '@hd/domain';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { anchorDate, latestDataEnd, loadElectricityView, loadIntervals, loadOverview } from './energy.ts';
 
 // Synthetisch: 1.–10. Juli 2026 aus dem NetzOÖ-Export (0,25 kWh je Viertelstunde = 24 kWh/Tag),
-// danach am 11. Juli AMIS-Zählerstände jede Minute bei 2 kW.
+// danach am 11. Juli AMIS-Zählerstände jede Minute bei 2 kW und die daraus abgeleiteten Viertelstunden.
 const JULY_1 = new Date('2026-06-30T22:00:00Z').getTime();
 const CSV_END = JULY_1 + 10 * 96 * INTERVAL_MS;
 
@@ -52,6 +60,19 @@ describe('Strom-Auswertung (Server)', () => {
         quantity: QUANTITY.counterImportKwh,
         ts: new Date(amisStart + m * 60_000),
         value: 1000 + (2 * m) / 60,
+      })),
+    );
+    // wie der Collector: Viertelstunden ab Beginn der Zählerstände; die überlappende Stunde
+    // schreibt er auch, dort bleiben aber die NetzOÖ-Werte stehen
+    await upsertDerivedReadings(
+      h.db,
+      id,
+      INTERVAL_QUANTITY,
+      'amis',
+      Array.from({ length: 28 }, (_, i) => ({
+        ts: new Date(amisStart + i * INTERVAL_MS),
+        value: 0.5,
+        status: 'AMIS',
       })),
     );
 

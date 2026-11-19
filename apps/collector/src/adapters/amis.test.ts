@@ -1,5 +1,14 @@
-import { createDb, type DbHandle, latestReading, runMigrations, setSetting } from '@hd/db';
-import { AMIS_POLL_INTERVAL, MAIN_METER, QUANTITY } from '@hd/domain';
+import {
+  createDb,
+  type DbHandle,
+  ensureMeter,
+  insertReadings,
+  latestReading,
+  readingsInRange,
+  runMigrations,
+  setSetting,
+} from '@hd/db';
+import { AMIS_POLL_INTERVAL, INTERVAL_QUANTITY, MAIN_METER, QUANTITY } from '@hd/domain';
 import fc from 'fast-check';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLogger } from '../adapter.ts';
@@ -102,6 +111,33 @@ describe('AMIS-Adapter', () => {
     expect(lines.some((l) => l.includes('AMIS-Leser liefert Daten'))).toBe(true);
   });
 
+  it('holt beim Start fehlende Viertelstunden aus vorhandenen Zählerständen nach', async () => {
+    // drei Stunden Zählerstände vor der ersten Abfrage, gleichmäßig 2 kW bis 10.000 kWh
+    const t = 1_795_000_000_000;
+    const id = await ensureMeter(h.db, MAIN_METER);
+    await insertReadings(
+      h.db,
+      id,
+      'amis',
+      Array.from({ length: 180 }, (_, i) => ({
+        quantity: QUANTITY.counterImportKwh,
+        ts: new Date(t - (180 - i) * 60_000),
+        value: 10_000 - ((180 - i) * 2) / 60,
+      })),
+    );
+    const adapter = createAmisAdapter({
+      url: 'http://amis.test/rest',
+      fetch: async () => new Response(body(t / 1000)),
+    });
+    await adapter.start({ db: h.db, log });
+    await adapter.stop();
+
+    const rows = await readingsInRange(h.db, id, INTERVAL_QUANTITY, new Date(t - 86_400_000), new Date(t));
+    expect(rows.length).toBe(11);
+    expect(rows.every((r) => r.status === 'AMIS' && Math.abs(r.value - 0.5) < 1e-6)).toBe(true);
+    expect(lines.some((l) => l.includes('Viertelstunden nachgetragen'))).toBe(true);
+  });
+
   it('pollOnce vor dem Start ist ein Programmierfehler', async () => {
     const adapter = createAmisAdapter({ url: 'http://amis.test/rest', fetch: vi.fn() });
     await expect(adapter.pollOnce()).rejects.toThrow(/nicht gestartet/);
@@ -142,6 +178,8 @@ describe('AMIS-Adapter', () => {
     await h.close();
     await vi.advanceTimersByTimeAsync(120_000);
     expect(adapter.status().lastError).not.toBeNull();
+    await adapter.pollOnce();
+    expect(lines.some((l) => l.includes('Viertelstunden konnten nicht abgeleitet werden'))).toBe(true);
     expect(lines.filter((l) => l.includes('Fehler im Ablauf')).length).toBeLessThanOrEqual(25);
     await adapter.stop();
     h = createDb('pglite://memory'); // für afterEach

@@ -109,6 +109,10 @@
         <dd data-testid="preview-inserted">{int.format(preview.inserted)}</dd>
         <dt>Geändert</dt>
         <dd>{int.format(preview.updated)}</dd>
+        {#if preview.replacesAmis}
+          <dt>davon AMIS-Werte</dt>
+          <dd data-testid="preview-replaces-amis">{int.format(preview.replacesAmis)}</dd>
+        {/if}
         <dt>Schon vorhanden</dt>
         <dd>{int.format(preview.unchanged)}</dd>
       </dl>

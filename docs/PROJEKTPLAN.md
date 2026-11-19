@@ -155,7 +155,7 @@ Gesamt-Coverage mindestens 80 %. Die CI bricht ab, wenn ein Schwellenwert unters
   - ~~Heatmap Wochentag × Uhrzeit~~ (Monat und Jahr)
   - ~~Vergleich zum Vormonat und Vorjahr~~ (bei laufender Periode gleich langer Zeitraum)
   - ~~Kosten pro Monat nach Komponenten (mit den Tarifen)~~ (`/kosten/[month]`, Kachel „Kosten Monat“)
-  - Tage ohne NetzOÖ-Export werden aus den AMIS-Zählerständen ergänzt; NetzOÖ hat Vorrang.
+  - Der Collector leitet aus den AMIS-Zählerständen laufend Viertelstunden ab und speichert sie; der NetzOÖ-Export dient für Historie und Lücken und hat bei gleicher Viertelstunde Vorrang.
 
 **Ergebnis:** Vollständige Strom- und Kostentransparenz aus echten Daten, mit der Rechnung abgleichbar.
 

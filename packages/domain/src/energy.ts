@@ -315,14 +315,6 @@ export function intervalsFromCounter(readings: CounterReading[], maxGapMs = 10 *
   return rows.sort((a, b) => a.ts.getTime() - b.ts.getTime());
 }
 
-/** Führt zwei Reihen zusammen; bei gleichem Zeitpunkt gewinnt `primary` (z. B. NetzOÖ vor AMIS). */
-export function mergeIntervals(primary: IntervalRow[], secondary: IntervalRow[]): IntervalRow[] {
-  const byTs = new Map<number, IntervalRow>();
-  for (const r of secondary) byTs.set(r.ts.getTime(), r);
-  for (const r of primary) byTs.set(r.ts.getTime(), r);
-  return [...byTs.values()].sort((a, b) => a.ts.getTime() - b.ts.getTime());
-}
-
 /** Monatswerte (Median der Tageswerte) für lange Zeiträume, Schlüssel JJJJ-MM-01. */
 export function baseLoadsByMonth(days: BaseLoad[]): BaseLoad[] {
   const byMonth = new Map<string, number[]>();

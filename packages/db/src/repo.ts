@@ -108,6 +108,58 @@ export async function upsertReadings(
   }
 }
 
+/**
+ * Schreibt abgeleitete Messwerte (z. B. Viertelstunden aus AMIS-Zählerständen). Werte einer anderen
+ * Quelle (NetzOÖ-Export) haben Vorrang und bleiben unverändert; eigene werden aktualisiert.
+ * Liefert die Zahl der geschriebenen Zeilen.
+ */
+export async function upsertDerivedReadings(
+  db: Db,
+  meterId: number,
+  quantity: string,
+  source: string,
+  rows: ReadingValue[],
+  chunkSize = 2000,
+): Promise<number> {
+  let written = 0;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const result = await db
+      .insert(readings)
+      .values(rows.slice(i, i + chunkSize).map((r) => ({ ...r, meterId, quantity, source })))
+      .onConflictDoUpdate({
+        target: [readings.meterId, readings.quantity, readings.ts],
+        set: { value: sql`excluded.value`, status: sql`excluded.status` },
+        setWhere: eq(readings.source, source),
+      })
+      .returning({ ts: readings.ts });
+    written += result.length;
+  }
+  return written;
+}
+
+/** Zeitpunkt des ältesten bzw. jüngsten Messwerts einer Größe, optional nur aus einer Quelle. */
+export async function readingTs(
+  db: Db,
+  meterId: number,
+  quantity: string,
+  which: 'first' | 'last',
+  source?: string,
+): Promise<Date | null> {
+  const [row] = await db
+    .select({ ts: readings.ts })
+    .from(readings)
+    .where(
+      and(
+        eq(readings.meterId, meterId),
+        eq(readings.quantity, quantity),
+        source === undefined ? undefined : eq(readings.source, source),
+      ),
+    )
+    .orderBy(which === 'first' ? asc(readings.ts) : desc(readings.ts))
+    .limit(1);
+  return row?.ts ?? null;
+}
+
 export type NewImport = typeof imports.$inferInsert;
 export type ImportRecord = typeof imports.$inferSelect;
 

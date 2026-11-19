@@ -8,6 +8,7 @@ import {
   resolveIntegerSetting,
 } from '@hd/domain';
 import type { Adapter, AdapterContext, AdapterStatus } from '../adapter.ts';
+import { deriveIntervals, initialCursor } from '../intervals.ts';
 
 export const DEFAULT_AMIS_URL = 'http://amis-1.fritz.box/rest';
 
@@ -37,6 +38,8 @@ function describeError(e: unknown): string {
 /**
  * Fragt den AMIS-Leser per REST ab und schreibt Zählerstände und Leistung in readings.
  * Das Intervall kommt aus den Einstellungen (Standard 60 s) und wird laufend neu gelesen.
+ * Nach jeder Abfrage werden abgeschlossene Viertelstunden aus den Zählerständen abgeleitet und
+ * gespeichert; beim ersten Lauf auch alle, die noch fehlen (z. B. nach einem Update).
  */
 export function createAmisAdapter(opts: AmisAdapterOptions): Adapter & { pollOnce(): Promise<void> } {
   const doFetch = opts.fetch ?? globalThis.fetch;
@@ -49,6 +52,8 @@ export function createAmisAdapter(opts: AmisAdapterOptions): Adapter & { pollOnc
   let timer: ReturnType<typeof setTimeout> | null = null;
   let running = false;
   let lastPollAt: number | null = null;
+  /** Ab hier werden Viertelstunden abgeleitet; null = noch nicht ermittelt. */
+  let cursor: Date | null = null;
   const state: Pick<AdapterStatus, 'lastSuccessAt' | 'lastError'> = { lastSuccessAt: null, lastError: null };
 
   async function pollOnce(): Promise<void> {
@@ -67,6 +72,21 @@ export function createAmisAdapter(opts: AmisAdapterOptions): Adapter & { pollOnc
     } catch (e) {
       state.lastError = describeError(e);
       ctx.log.warn('AMIS-Abfrage fehlgeschlagen', { error: state.lastError });
+    }
+    await deriveQuarterHours(ctx, meterId);
+  }
+
+  /** Fehler hier stören die Abfrage nicht; der nächste Lauf holt alles nach. */
+  async function deriveQuarterHours(c: AdapterContext, id: number): Promise<void> {
+    try {
+      cursor ??= await initialCursor(c.db, id);
+      if (!cursor) return;
+      const { written, next } = await deriveIntervals(c.db, id, cursor);
+      if (written > 8)
+        c.log.info('Viertelstunden nachgetragen', { count: written, from: cursor.toISOString() });
+      cursor = next;
+    } catch (e) {
+      c.log.warn('Viertelstunden konnten nicht abgeleitet werden', { error: describeError(e) });
     }
   }
 

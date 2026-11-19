@@ -1,5 +1,13 @@
-import { createDb, type DbHandle, listImports, runMigrations } from '@hd/db';
-import { INTERVAL_MS, NetzOoeCsvError, serializeNetzOoeCsv } from '@hd/domain';
+import {
+  createDb,
+  type DbHandle,
+  ensureMeter,
+  listImports,
+  readingsInRange,
+  runMigrations,
+  upsertDerivedReadings,
+} from '@hd/db';
+import { INTERVAL_MS, INTERVAL_QUANTITY, MAIN_METER, NetzOoeCsvError, serializeNetzOoeCsv } from '@hd/domain';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { previewImport, runImport } from './netzooe-import.ts';
 
@@ -72,9 +80,43 @@ describe('NetzOÖ-Import', () => {
     expect(await listImports(h.db)).toHaveLength(2);
   });
 
+  it('ersetzt Viertelstunden aus dem AMIS-Leser, auch bei gleichem Wert', async () => {
+    // AMIS-Werte direkt nach dem bisherigen Export: 4 Viertelstunden, eine davon mit gleichem Wert
+    const after = start + rows.length * INTERVAL_MS;
+    const amis = [0, 1, 2, 3].map((i) => ({
+      ts: new Date(after + i * INTERVAL_MS),
+      value: i === 0 ? 0.1 : 0.5,
+      status: 'AMIS',
+    }));
+    const meterId = await ensureMeter(h.db, MAIN_METER);
+    await upsertDerivedReadings(h.db, meterId, INTERVAL_QUANTITY, 'amis', amis);
+
+    const text = serializeNetzOoeCsv([0, 1, 2].map((i) => ({ ts: amis[i]!.ts, kwh: 0.1, status: 'VALID' })));
+    expect(await previewImport(h.db, text)).toMatchObject({
+      inserted: 0,
+      updated: 3,
+      replacesAmis: 3,
+      unchanged: 0,
+    });
+    await runImport(h.db, text);
+    const stored = await readingsInRange(
+      h.db,
+      meterId,
+      INTERVAL_QUANTITY,
+      amis[0]!.ts,
+      new Date(after + 4 * INTERVAL_MS),
+    );
+    expect(stored.map((r) => [r.value, r.status])).toEqual([
+      [0.1, 'VALID'],
+      [0.1, 'VALID'],
+      [0.1, 'VALID'],
+      [0.5, 'AMIS'],
+    ]);
+  });
+
   it('falsches Format bricht ab, ohne etwas zu schreiben', async () => {
     await expect(previewImport(h.db, 'a;b;c')).rejects.toBeInstanceOf(NetzOoeCsvError);
     await expect(runImport(h.db, 'a;b;c')).rejects.toBeInstanceOf(NetzOoeCsvError);
-    expect(await listImports(h.db)).toHaveLength(2);
+    expect(await listImports(h.db)).toHaveLength(3);
   });
 });

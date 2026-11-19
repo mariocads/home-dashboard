@@ -9,6 +9,7 @@ import {
   upsertReadings,
 } from '@hd/db';
 import {
+  DERIVED_STATUS,
   diffIntervals,
   INTERVAL_QUANTITY,
   MAIN_METER,
@@ -36,6 +37,8 @@ export interface ImportPreview {
   issues: { line: number; message: string }[];
   inserted: number;
   updated: number;
+  /** davon Viertelstunden aus dem AMIS-Leser, die durch NetzOÖ-Werte ersetzt werden */
+  replacesAmis: number;
   unchanged: number;
 }
 
@@ -49,12 +52,16 @@ async function analyze(db: Db, text: string) {
     summary.from && summary.to
       ? await readingsInRange(db, meterId, INTERVAL_QUANTITY, summary.from, summary.to)
       : [];
-  return { parsed, summary, meterId, diff: diffIntervals(parsed.rows, stored), contentHash: sha256(text) };
+  const diff = diffIntervals(parsed.rows, stored);
+  // AMIS-Werte haben den Status DERIVED_STATUS und gelten daher immer als geändert: NetzOÖ hat Vorrang.
+  const amis = new Set(stored.filter((s) => s.status === DERIVED_STATUS).map((s) => s.ts.getTime()));
+  const replacesAmis = diff.updated.filter((r) => amis.has(r.ts.getTime())).length;
+  return { parsed, summary, meterId, diff, replacesAmis, contentHash: sha256(text) };
 }
 
 /** Prüft die Datei gegen die Datenbank, ohne etwas zu schreiben. */
 export async function previewImport(db: Db, text: string): Promise<ImportPreview> {
-  const { parsed, summary, diff, contentHash } = await analyze(db, text);
+  const { parsed, summary, diff, replacesAmis, contentHash } = await analyze(db, text);
   const previous = await findImportByHash(db, contentHash);
   return {
     contentHash,
@@ -75,6 +82,7 @@ export async function previewImport(db: Db, text: string): Promise<ImportPreview
     issues: parsed.issues.slice(0, LIST_LIMIT),
     inserted: diff.inserted.length,
     updated: diff.updated.length,
+    replacesAmis,
     unchanged: diff.unchanged,
   };
 }

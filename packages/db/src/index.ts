@@ -25,6 +25,7 @@ export {
   type NewImport,
   type NewReading,
   readingsInRange,
+  readingTs,
   type ReadingValue,
   recordImport,
   saveInstallment,
@@ -32,6 +33,7 @@ export {
   saveTariff,
   setSetting,
   type TariffRow,
+  upsertDerivedReadings,
   upsertReadings,
 } from './repo.ts';
 export * as schema from './schema.ts';

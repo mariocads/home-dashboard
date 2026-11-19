@@ -95,11 +95,15 @@ docker compose exec web node scripts/setup-token.ts
 
 **Notfall:** Wenn alle Passkeys und alle Recovery-Codes verloren sind, erzeugst du mit demselben Befehl einen neuen Setup-Link.
 
-### Smartmeter-Historie importieren
+### Verbrauchsdaten: AMIS-Leser und NetzOÖ-Export
 
-1. Im NetzOÖ-Smartmeter-Portal die Viertelstundenwerte als CSV exportieren, am besten ab dem Einbau des Zählers. Lange Zeiträume dürfen auf mehrere Dateien verteilt sein.
+Laufend kommen die Daten vom AMIS-Leser. Der Collector speichert jede Minute den Zählerstand und leitet daraus nach jeder abgeschlossenen Viertelstunde den Verbrauch ab. Nach einem Update oder Ausfall holt er fehlende Viertelstunden aus den vorhandenen Zählerständen selbst nach.
+
+Der NetzOÖ-Export ist für die Zeit **vor** dem AMIS-Leser (Historie) und für Lücken, z. B. wenn der Leser ausgefallen war. Für dieselbe Viertelstunde gilt immer der NetzOÖ-Wert, auch wenn er gleich ist; die Vorschau zeigt dazu „davon AMIS-Werte“. Der AMIS-Leser überschreibt NetzOÖ-Werte nie.
+
+1. Im NetzOÖ-Smartmeter-Portal die Viertelstundenwerte des gewünschten Zeitraums als CSV exportieren. Lange Zeiträume dürfen auf mehrere Dateien verteilt sein.
 2. In der App unter **Strom → NetzOÖ-Export importieren** die Datei wählen, **Prüfen** und dann **Importieren**.
-3. Später regelmäßig (z. B. monatlich) den letzten Zeitraum erneut exportieren und importieren. Bereits vorhandene Werte werden erkannt, nachträglich korrigierte Werte überschrieben.
+3. Ein erneuter Import desselben Zeitraums ist unschädlich: Vorhandene Werte werden erkannt, nachträglich korrigierte überschrieben.
 
 Die Exportdatei enthält den Zählpunkt im Namen. Sie wird nur gelesen, nicht gespeichert.
 

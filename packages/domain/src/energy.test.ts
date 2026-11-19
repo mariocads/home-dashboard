@@ -4,7 +4,6 @@ import {
   baseLoads,
   baseLoadsByMonth,
   intervalsFromCounter,
-  mergeIntervals,
   bucketize,
   isDateKey,
   median,
@@ -270,11 +269,5 @@ describe('AMIS-Zählerstände → Viertelstunden', () => {
         },
       ),
     );
-  });
-
-  it('NetzOÖ hat Vorrang vor AMIS', () => {
-    const csv = series('2026-11-18T10:00:00Z', 2, () => 1);
-    const amis = series('2026-11-18T10:15:00Z', 3, () => 9).map((r) => ({ ...r, status: 'AMIS' }));
-    expect(mergeIntervals(csv, amis).map((r) => r.kwh)).toEqual([1, 1, 9, 9]);
   });
 });

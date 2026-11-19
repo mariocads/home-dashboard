@@ -55,7 +55,6 @@ export {
   intervalsFromCounter,
   isDateKey,
   median,
-  mergeIntervals,
   monthForecast,
   niceTicks,
   type Period,

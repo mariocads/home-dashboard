@@ -7,11 +7,9 @@ import {
   INTERVAL_MS,
   INTERVAL_QUANTITY,
   type IntervalRow,
-  intervalsFromCounter,
   isDateKey,
   MAIN_METER,
   median,
-  mergeIntervals,
   monthForecast,
   type Period,
   periodFor,
@@ -25,32 +23,19 @@ import {
   weekdayHourHeatmap,
 } from '@hd/domain';
 
-/** Abstand, über den AMIS-Zählerstände vor/nach dem Zeitraum für die Interpolation gelesen werden. */
-const COUNTER_MARGIN_MS = 10 * 60_000;
-
 /**
- * 15-Minuten-Bezug im Zeitraum [from, to). Grundlage ist der NetzOÖ-Import; danach (noch nicht
- * exportierte Tage) füllen aus AMIS-Zählerständen abgeleitete Werte auf.
+ * 15-Minuten-Bezug im Zeitraum [from, to). Die Viertelstunden stammen aus dem NetzOÖ-Export oder
+ * werden vom Collector aus den AMIS-Zählerständen abgeleitet (Status AMIS); bei gleichem Zeitpunkt
+ * hat der Export Vorrang, das regelt schon das Schreiben.
  */
 export async function loadIntervals(db: Db, from: Date, to: Date): Promise<IntervalRow[]> {
   const meterId = await findMeterId(db, MAIN_METER.slug);
   if (meterId === null) return [];
-  const csv = (await readingsInRange(db, meterId, INTERVAL_QUANTITY, from, to)).map((r) => ({
+  return (await readingsInRange(db, meterId, INTERVAL_QUANTITY, from, to)).map((r) => ({
     ts: r.ts,
     kwh: r.value,
     status: r.status,
   }));
-  const csvEnd = csv.length ? new Date(csv.at(-1)!.ts.getTime() + INTERVAL_MS) : from;
-  if (csvEnd >= to) return csv;
-  const counters = await readingsInRange(
-    db,
-    meterId,
-    QUANTITY.counterImportKwh,
-    new Date(csvEnd.getTime() - COUNTER_MARGIN_MS),
-    new Date(to.getTime() + COUNTER_MARGIN_MS),
-  );
-  const derived = intervalsFromCounter(counters).filter((r) => r.ts >= csvEnd && r.ts < to);
-  return mergeIntervals(csv, derived);
 }
 
 /** Ende der jüngsten Daten (NetzOÖ oder AMIS), oder null. */
