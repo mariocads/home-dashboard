@@ -134,7 +134,12 @@ Gesamt-Coverage mindestens 80 %. Die CI bricht ab, wenn ein Schwellenwert unters
 
 ### Phase 1: MVP Strom (Release v0.1)
 
-- NetzOÖ-CSV-Import (15-Minuten-Werte) per Upload in der App, mit Vorschau, Duplikat- und Lückenerkennung und Import-Protokoll
+> **Stand 19.11.2026:** Der CSV-Import ist fertig (Strom → „NetzOÖ-Export importieren“). Der echte Export (25.03.–17.11.2026) lässt sich fehlerfrei importieren. Als Nächstes kommen die Dashboards, danach Tarife und Kosten.
+
+- ~~NetzOÖ-CSV-Import (15-Minuten-Werte) per Upload in der App, mit Vorschau, Duplikat- und Lückenerkennung und Import-Protokoll~~
+  - Gespeichert als `energy_import_kwh` am Hauptzähler, Quelle `netzooe_csv`. Geänderte Werte (z. B. Ersatzwert → Messwert) werden überschrieben.
+  - Das Protokoll speichert Zeitraum, Zählungen und den SHA-256 der Datei, aber nicht den Dateinamen (Zählpunkt).
+  - Zeitzonen-Logik `Europe/Vienna` ohne Bibliothek, gegen `Intl` property-getestet.
 - Historie seit dem Einbau des Smartmeters importieren
 - Tarifverwaltung: Gutmann DISK Strom bis 16.03.2026, E.ON ÖkoStrom Basis ab 17.03.2026, NetzOÖ-Netzentgelte, Abgaben und USt
 - Kostenberechnung im `domain`-Paket. Ein Rechnungsabgleich zeigt erfasste Monatsrechnung gegen berechneten Wert mit Abweichung in %.

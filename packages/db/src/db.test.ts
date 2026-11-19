@@ -2,7 +2,18 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, type DbHandle } from './client.ts';
 import { runMigrations } from './migrate.ts';
-import { ensureMeter, getSetting, insertReadings, latestReading, setSetting } from './repo.ts';
+import {
+  ensureMeter,
+  findImportByHash,
+  getSetting,
+  insertReadings,
+  latestReading,
+  listImports,
+  readingsInRange,
+  recordImport,
+  setSetting,
+  upsertReadings,
+} from './repo.ts';
 import { meters, readings, sessions, users } from './schema.ts';
 
 /**
@@ -85,5 +96,61 @@ describe(`db (${url.split(':')[0]})`, () => {
       0,
     );
     expect(await latestReading(handle.db, 'repo-test', 'power_w')).toEqual({ ts: t2, value: 200 });
+  });
+});
+
+describe('Import-Daten', () => {
+  let handle: DbHandle;
+
+  beforeAll(async () => {
+    handle = createDb(url);
+    await runMigrations(handle);
+  });
+
+  afterAll(async () => {
+    await handle?.close();
+  });
+
+  it('upsertReadings schreibt in Blöcken und überschreibt Wert und Status; Bereichsabfrage ist [from, to)', async () => {
+    const id = await ensureMeter(handle.db, {
+      slug: 'import-test',
+      name: 'T',
+      kind: 'electricity',
+      unit: 'kWh',
+    });
+    const base = Date.UTC(2026, 6, 1);
+    const rows = Array.from({ length: 25 }, (_, i) => ({
+      ts: new Date(base + i * 900_000),
+      value: i,
+      status: 'VALID',
+    }));
+    await upsertReadings(handle.db, id, 'energy_import_kwh', 'netzooe_csv', rows, 10);
+    await upsertReadings(handle.db, id, 'energy_import_kwh', 'netzooe_csv', [
+      { ts: rows[3]!.ts, value: 99, status: 'SUBSTITUTE' },
+    ]);
+    const stored = await readingsInRange(handle.db, id, 'energy_import_kwh', rows[0]!.ts, rows[24]!.ts);
+    expect(stored).toHaveLength(24);
+    expect(stored[3]).toEqual({ ts: rows[3]!.ts, value: 99, status: 'SUBSTITUTE' });
+  });
+
+  it('Import-Protokoll: anlegen, nach Hash finden, neueste zuerst', async () => {
+    const entry = {
+      source: 'netzooe_csv',
+      contentHash: 'abc',
+      fromTs: new Date('2026-07-01T00:00:00Z'),
+      toTs: new Date('2026-07-02T00:00:00Z'),
+      rowCount: 96,
+      inserted: 96,
+      updated: 0,
+      unchanged: 0,
+      issueCount: 0,
+      gapCount: 0,
+      totalKwh: 12.5,
+    };
+    expect(await findImportByHash(handle.db, 'abc')).toBeNull();
+    const first = await recordImport(handle.db, entry);
+    const second = await recordImport(handle.db, { ...entry, contentHash: 'def' });
+    expect((await findImportByHash(handle.db, 'abc'))?.id).toBe(first.id);
+    expect((await listImports(handle.db)).map((i) => i.id)).toEqual([second.id, first.id]);
   });
 });

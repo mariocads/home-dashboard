@@ -1,6 +1,6 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import type { Db } from './client.ts';
-import { meters, readings, settings } from './schema.ts';
+import { imports, meters, readings, settings } from './schema.ts';
 
 // Gemeinsame Datenzugriffe für web und collector.
 
@@ -54,6 +54,80 @@ export async function insertReadings(
     .onConflictDoNothing()
     .returning({ ts: readings.ts });
   return inserted.length;
+}
+
+export interface ReadingValue {
+  ts: Date;
+  value: number;
+  status: string;
+}
+
+/** Messwerte einer Größe im Zeitraum [from, to). */
+export async function readingsInRange(
+  db: Db,
+  meterId: number,
+  quantity: string,
+  from: Date,
+  to: Date,
+): Promise<ReadingValue[]> {
+  return db
+    .select({ ts: readings.ts, value: readings.value, status: readings.status })
+    .from(readings)
+    .where(
+      and(
+        eq(readings.meterId, meterId),
+        eq(readings.quantity, quantity),
+        gte(readings.ts, from),
+        lt(readings.ts, to),
+      ),
+    )
+    .orderBy(readings.ts);
+}
+
+/** Schreibt oder überschreibt Messwerte (Wert, Status, Quelle) in Blöcken. */
+export async function upsertReadings(
+  db: Db,
+  meterId: number,
+  quantity: string,
+  source: string,
+  rows: ReadingValue[],
+  chunkSize = 2000,
+): Promise<void> {
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    await db
+      .insert(readings)
+      .values(rows.slice(i, i + chunkSize).map((r) => ({ ...r, meterId, quantity, source })))
+      .onConflictDoUpdate({
+        target: [readings.meterId, readings.quantity, readings.ts],
+        set: {
+          value: sql`excluded.value`,
+          status: sql`excluded.status`,
+          source: sql`excluded.source`,
+        },
+      });
+  }
+}
+
+export type NewImport = typeof imports.$inferInsert;
+export type ImportRecord = typeof imports.$inferSelect;
+
+export async function recordImport(db: Db, entry: NewImport): Promise<ImportRecord> {
+  const [row] = await db.insert(imports).values(entry).returning();
+  return row!;
+}
+
+export async function listImports(db: Db, limit = 20): Promise<ImportRecord[]> {
+  return db.select().from(imports).orderBy(desc(imports.createdAt), desc(imports.id)).limit(limit);
+}
+
+export async function findImportByHash(db: Db, contentHash: string): Promise<ImportRecord | null> {
+  const [row] = await db
+    .select()
+    .from(imports)
+    .where(eq(imports.contentHash, contentHash))
+    .orderBy(desc(imports.id))
+    .limit(1);
+  return row ?? null;
 }
 
 /** Jüngster Messwert einer Größe an einer Messstelle. */

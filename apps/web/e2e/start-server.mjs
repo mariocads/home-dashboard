@@ -20,4 +20,6 @@ if (!url) {
 }
 writeFileSync('.pglite/e2e-setup-url.txt', url);
 
+// Uploads (NetzOÖ-Export) sind größer als das Standardlimit von adapter-node (512 KB).
+process.env.BODY_SIZE_LIMIT ??= '25M';
 await import('../build/index.js');

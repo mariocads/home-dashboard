@@ -37,6 +37,8 @@ services:
     environment:
       DATABASE_URL: postgres://homedash:${POSTGRES_PASSWORD}@db:5432/homedash
       ORIGIN: ${ORIGIN:-https://home.fritz.box}
+      # Upload des NetzOÖ-Exports (Standardlimit von adapter-node: 512 KB)
+      BODY_SIZE_LIMIT: 25M
       RP_ID: ${RP_ID:-home.fritz.box}
       # Client-IP für Rate-Limit aus dem Caddy-Header
       ADDRESS_HEADER: X-Forwarded-For

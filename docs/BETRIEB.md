@@ -79,6 +79,14 @@ docker compose exec web node scripts/setup-token.ts
 
 **Notfall:** Wenn alle Passkeys und alle Recovery-Codes verloren sind, erzeugst du mit demselben Befehl einen neuen Setup-Link.
 
+### Smartmeter-Historie importieren
+
+1. Im NetzOÖ-Smartmeter-Portal die Viertelstundenwerte als CSV exportieren, am besten ab dem Einbau des Zählers. Lange Zeiträume dürfen auf mehrere Dateien verteilt sein.
+2. In der App unter **Strom → NetzOÖ-Export importieren** die Datei wählen, **Prüfen** und dann **Importieren**.
+3. Später regelmäßig (z. B. monatlich) den letzten Zeitraum erneut exportieren und importieren. Bereits vorhandene Werte werden erkannt, nachträglich korrigierte Werte überschrieben.
+
+Die Exportdatei enthält den Zählpunkt im Namen. Sie wird nur gelesen, nicht gespeichert.
+
 ## 6. Updates und Rollback
 
 ```bash

@@ -130,3 +130,23 @@ export const readings = pgTable(
   },
   (t) => [primaryKey({ columns: [t.meterId, t.quantity, t.ts] })],
 );
+
+/**
+ * Import-Protokoll (z. B. NetzOÖ-CSV). Der Dateiname wird bewusst nicht gespeichert,
+ * er enthält den Zählpunkt. Der SHA-256 des Inhalts erkennt erneute Importe.
+ */
+export const imports = pgTable('imports', {
+  id: serial('id').primaryKey(),
+  source: text('source').notNull(),
+  contentHash: text('content_hash').notNull(),
+  fromTs: timestamp('from_ts', { withTimezone: true }),
+  toTs: timestamp('to_ts', { withTimezone: true }),
+  rowCount: integer('row_count').notNull(),
+  inserted: integer('inserted').notNull(),
+  updated: integer('updated').notNull(),
+  unchanged: integer('unchanged').notNull(),
+  issueCount: integer('issue_count').notNull(),
+  gapCount: integer('gap_count').notNull(),
+  totalKwh: doublePrecision('total_kwh').notNull(),
+  createdAt: createdAt(),
+});
