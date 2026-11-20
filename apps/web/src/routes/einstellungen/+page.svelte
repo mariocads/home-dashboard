@@ -20,10 +20,8 @@
     collector: 'Collector läuft nicht',
     waiting: 'Noch keine Rückmeldung',
   } as const;
-  const status = $derived(data.amis.status);
 
   // Abschnitte sind zugeklappt; offen nur, wenn es dort etwas zu sehen oder zu tun gibt.
-  const amisOpen = $derived(!!form && ('amisError' in form || 'amisSaved' in form));
   const passkeysOpen = $derived(data.recovered || !!error || (!!form && 'error' in form && !!form.error));
   const codesOpen = $derived(!!newCodes || (!!form && 'codes' in form && !!form.codes));
 
@@ -42,22 +40,19 @@
   }
 </script>
 
-<svelte:head><title>Einstellungen · Home</title></svelte:head>
-
-<div class="stack">
-  <h1>Einstellungen</h1>
-
-  {#if data.recovered}
-    <section class="card warn" role="status">
-      <strong>Mit Recovery-Code angemeldet.</strong>
-      <p>Bitte jetzt einen neuen Passkey für dieses Gerät anlegen.</p>
-    </section>
-  {/if}
-
-  <details class="card section" open={amisOpen}>
+{#snippet device(d: {
+  id: string;
+  title: string;
+  info: typeof data.amis;
+  action: string;
+  error: string | null | undefined;
+  saved: boolean;
+})}
+  {@const status = d.info.status}
+  <details class="card section" open={!!d.error || d.saved}>
     <summary>
-      <h2>AMIS-Leser</h2>
-      <span class="status" data-testid="amis-status" data-state={status.state}>
+      <h2>{d.title}</h2>
+      <span class="status" data-testid="{d.id}-status" data-state={status.state}>
         <span class="dot {status.state}" aria-hidden="true"></span>
         {STATE_LABELS[status.state]}
       </span>
@@ -74,13 +69,7 @@
           <dd>{fmtTime.format(new Date(status.checkedAt))}</dd>
         {/if}
         <dt>Letzter Messwert</dt>
-        <dd>
-          {#if data.amis.power}
-            {fmtTime.format(new Date(data.amis.power.ts))}
-          {:else}
-            noch keiner
-          {/if}
-        </dd>
+        <dd>{d.info.lastValueAt ? fmtTime.format(new Date(d.info.lastValueAt)) : 'noch keiner'}</dd>
         {#if status.error}
           <dt>Meldung</dt>
           <dd><code>{status.error}</code></dd>
@@ -88,36 +77,67 @@
       </dl>
       <form
         method="POST"
-        action="?/saveAmisInterval"
+        action={d.action}
         use:enhance={() =>
           async ({ update }) =>
             update({ reset: false })}
       >
-        <label for="amis-interval">Abfrageintervall in Sekunden</label>
+        <label for="{d.id}-interval">Abfrageintervall in Sekunden</label>
         <div class="row">
           <input
-            id="amis-interval"
+            id="{d.id}-interval"
             name="interval"
             type="number"
             inputmode="numeric"
             required
-            min={data.amis.min}
-            max={data.amis.max}
+            min={d.info.min}
+            max={d.info.max}
             step="1"
-            value={data.amis.interval}
+            value={d.info.interval}
           />
           <button class="secondary" type="submit">Speichern</button>
         </div>
       </form>
-      {#if form && 'amisError' in form && form.amisError}
-        <p class="error" role="alert">{form.amisError}</p>
-      {:else if form && 'amisSaved' in form && form.amisSaved}
+      {#if d.error}
+        <p class="error" role="alert">{d.error}</p>
+      {:else if d.saved}
         <p class="muted small" role="status">
           Gespeichert. Der Collector übernimmt den Wert innerhalb von 10 s.
         </p>
       {/if}
     </div>
   </details>
+{/snippet}
+
+<svelte:head><title>Einstellungen · Home</title></svelte:head>
+
+<div class="stack">
+  <h1>Einstellungen</h1>
+
+  {#if data.recovered}
+    <section class="card warn" role="status">
+      <strong>Mit Recovery-Code angemeldet.</strong>
+      <p>Bitte jetzt einen neuen Passkey für dieses Gerät anlegen.</p>
+    </section>
+  {/if}
+
+  {@render device({
+    id: 'amis',
+    title: 'AMIS-Leser',
+    info: data.amis,
+    action: '?/saveAmisInterval',
+    error: form && 'amisError' in form ? form.amisError : null,
+    saved: !!form && 'amisSaved' in form,
+  })}
+
+  {@render device({
+    id: 'isg',
+    title: 'Wärmepumpe (ISG)',
+    info: data.isg,
+    action: '?/saveIsgInterval',
+    error: form && 'isgError' in form ? form.isgError : null,
+    saved: !!form && 'isgSaved' in form,
+  })}
 
   <details class="card section" open={passkeysOpen}>
     <summary>

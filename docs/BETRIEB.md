@@ -107,6 +107,18 @@ Der NetzOÖ-Export ist für die Zeit **vor** dem AMIS-Leser (Historie) und für 
 
 Die Exportdatei enthält den Zählpunkt im Namen. Sie wird nur gelesen, nicht gespeichert.
 
+### Wärmepumpe: Stiebel ISG
+
+Der Collector liest die Wärmepumpe über die ISG per Modbus TCP (Port 502), standardmäßig jede Minute. Er liest nur und kann an der Anlage nichts verstellen. Welche Werte er liest, steht in [WAERMEPUMPE.md](WAERMEPUMPE.md).
+
+1. In der FRITZ!Box der ISG eine feste IP geben (**Heimnetz → Netzwerk → Gerät bearbeiten → Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen**).
+2. Vom Server prüfen, ob Modbus erreichbar ist:
+   ```bash
+   timeout 3 bash -c '</dev/tcp/<IP der ISG>/502' && echo "Modbus-Port offen"
+   ```
+3. In `/opt/stacks/home-dashboard/.env` `ISG_HOST=<IP der ISG>` eintragen und `./deploy.sh` ausführen. Ohne Eintrag fragt der Collector `servicewelt.fritz.box` ab; `ISG_HOST=` (leer) schaltet den Adapter ab.
+4. In der App unter **Einstellungen → Wärmepumpe (ISG)** muss nach spätestens einer Minute „Online“ stehen.
+
 ### Tarife übernehmen
 
 Preise, Teilzahlungen und Rechnungen liegen nur in der Datenbank und in einer lokalen JSON-Datei (z. B. `prep/seed/tarife.json`), nie im Repo.
@@ -181,7 +193,7 @@ Zum Beispiel vom Raspberry Pi auf den ThinkCentre. Mitgenommen werden drei Dinge
 | Was                         | Warum                                                                                     |
 | --------------------------- | ----------------------------------------------------------------------------------------- |
 | Datenbank-Dump              | Messwerte, Tarife, Passkeys, Einstellungen                                                |
-| `.env`                      | Datenbank-Passwort, Hostname, AMIS-Adresse und TimescaleDB-Version                        |
+| `.env`                      | Datenbank-Passwort, Hostname, Adressen von AMIS-Leser und ISG, TimescaleDB-Version        |
 | Caddy-Volume (`caddy_data`) | Die interne Zertifizierungsstelle: Das Root-Zertifikat auf Handy und Laptop bleibt gültig |
 
 Weil der Hostname `home-server.fritz.box` gleich bleibt, funktionieren die Passkeys weiter. Die Images holt der neue Server selbst passend zu seiner Architektur aus GHCR. Der Umzug dauert etwa 15 Minuten. In dieser Zeit fehlen die Live-Werte des AMIS-Lesers; die Viertelstundenwerte lassen sich später aus dem NetzOÖ-Export nachladen.
@@ -233,3 +245,5 @@ rm caddy_data.tgz                            # enthält den privaten Schlüssel 
 | web nicht healthy                            | `docker compose logs web`, `docker compose ps`                                                  |
 | Kachel „Leistung jetzt“ zeigt „veraltet“     | **Einstellungen → AMIS-Leser** zeigt Zustand und Ursache; sonst `docker compose logs collector` |
 | collector meldet `ENOTFOUND` beim AMIS-Leser | Name löst im Container nicht auf: in `.env` `AMIS_URL=http://<feste IP>/rest` setzen            |
+| Wärmepumpe „Offline“ mit `ECONNREFUSED`      | Modbus TCP an der ISG nicht aktiv; in der SERVICEWELT unter **Diagnose → System → ISG** prüfen  |
+| Wärmepumpe „Offline“ mit `ENOTFOUND`         | in `.env` `ISG_HOST=<feste IP>` setzen                                                          |

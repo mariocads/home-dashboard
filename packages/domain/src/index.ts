@@ -27,6 +27,16 @@ export {
   summarizeIntervals,
 } from './netzooe.ts';
 export {
+  ISG_BLOCKS,
+  ISG_SOURCE,
+  type IsgReading,
+  type IsgRegisters,
+  isgRegistersToReadings,
+  registersFromBlocks,
+  WP_METER,
+  WP_QUANTITY,
+} from './isg.ts';
+export {
   type LocalDateTime,
   startOfViennaDay,
   toVienna,
@@ -40,6 +50,7 @@ export {
 export {
   AMIS_POLL_INTERVAL,
   type IntegerSetting,
+  ISG_POLL_INTERVAL,
   parseIntegerSetting,
   resolveIntegerSetting,
 } from './settings.ts';

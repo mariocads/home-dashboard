@@ -61,6 +61,8 @@ services:
       DATABASE_URL: postgres://homedash:${POSTGRES_PASSWORD}@db:5432/homedash
       # AMIS-Leser (REST); leer = Adapter aus. Intervall wird in der App unter Einstellungen gesetzt.
       AMIS_URL: ${AMIS_URL-http://amis-1.fritz.box/rest}
+      # Wärmepumpe: Stiebel ISG (Modbus TCP, nur lesend); leer = Adapter aus.
+      ISG_HOST: ${ISG_HOST-servicewelt.fritz.box}
     depends_on:
       db:
         condition: service_healthy

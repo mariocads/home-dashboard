@@ -200,7 +200,7 @@ Blockiert durch die offenen Punkte O1 bis O3.
 ### Phase 3: Wallbox und Wärmepumpe
 
 - go-e Gemini Flex: lokale HTTP-API v2 in der go-e-App aktivieren, Ladevorgänge mit kWh und Kosten pro Ladung, Monatsstatistik
-- Stiebel ISG über Modbus TCP: Vorlauf- und Rücklauftemperatur, Außentemperatur, Betriebsmodus, Verdichterstarts, Wärme- und Stromzähler (soweit vorhanden), Störmeldungen
+- Stiebel ISG über Modbus TCP: Vorlauf- und Rücklauftemperatur, Außentemperatur, Betriebsmodus, Verdichterstarts, Wärme- und Stromzähler (soweit vorhanden), Störmeldungen. **Der Collector-Adapter `isg` erfasst die Werte**; offen sind Ansicht, Statusbits und Kühlstrom.
 - Effizienzkennzahlen: COP und JAZ aus WP-Strom und Wärmemenge, Abhängigkeit von der Außentemperatur
 
 ### Phase 4: Loxone und Rehau
@@ -218,16 +218,16 @@ Blockiert durch die offenen Punkte O1 bis O3.
 
 ## 7. Offene Punkte
 
-| #      | Punkt                                                                                                                             | Blockiert | Wer          |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------ |
-| O1     | Woher kommt der WP-Stromverbrauch? (ISG-Verbrauchszähler über Modbus oder nachgerüsteter MID-/Modbus-Zähler im WP-Kreis)          | Phase 2   | Mario        |
-| O2     | Wie wird Warmwasser aufgeteilt? (Fixer Schlüssel, Warmwasserzähler oder wie die Heizung)                                          | Phase 2   | Mario        |
-| O3     | Schaltet der Installateur bzw. Techem den Funk der Techem-Zähler frei, und gibt es die AES-Schlüssel?                             | Phase 2   | Installateur |
-| O4     | Wie werden die Fixkosten (Grundpauschale, Messentgelt, Leistungspauschale) aufgeteilt?                                            | Phase 2   | Mario        |
-| O5     | Welche Modelle sind verbaut? (Loxone Miniserver Gen1/Gen2/Go, Rehau Nea Smart 1/2.0, Zusatzmodule)                                | Phase 4   | Mario        |
-| O6     | Bedeutet „Erweiterung API 1.0“ an der ISG, dass Modbus TCP freigeschaltet ist? (Prüfen: ISG-Weboberfläche → Profil/Einstellungen) | Phase 3   | Mario        |
-| ~~O7~~ | ~~Lädt nur Partei A an der Wallbox?~~ **Geklärt 18.11.2026: ja, nur Partei A.**                                                   | –         | –            |
-| O8     | Liegt der Hostname `home-server.fritz.box` fest? Er bestimmt die Passkey-Domain.                                                  | Phase 0   | Mario        |
+| #      | Punkt                                                                                                                                                                                        | Blockiert | Wer          |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------ |
+| O1     | Woher kommt der WP-Stromverbrauch? Die ISG liefert Strom für Heizen und Warmwasser (vom Regler berechnet), aber nichts für Kühlen. Reicht das, oder braucht es einen MID-Zähler im WP-Kreis? | Phase 2   | Mario        |
+| O2     | Wie wird Warmwasser aufgeteilt? (Fixer Schlüssel, Warmwasserzähler oder wie die Heizung)                                                                                                     | Phase 2   | Mario        |
+| O3     | Schaltet der Installateur bzw. Techem den Funk der Techem-Zähler frei, und gibt es die AES-Schlüssel?                                                                                        | Phase 2   | Installateur |
+| O4     | Wie werden die Fixkosten (Grundpauschale, Messentgelt, Leistungspauschale) aufgeteilt?                                                                                                       | Phase 2   | Mario        |
+| O5     | Welche Modelle sind verbaut? (Loxone Miniserver Gen1/Gen2/Go, Rehau Nea Smart 1/2.0, Zusatzmodule)                                                                                           | Phase 4   | Mario        |
+| ~~O6~~ | ~~Ist Modbus TCP an der ISG freigeschaltet?~~ **Geklärt 20.11.2026: ja, Port 502 offen, Registerliste in [WAERMEPUMPE.md](WAERMEPUMPE.md).**                                                 | –         | –            |
+| ~~O7~~ | ~~Lädt nur Partei A an der Wallbox?~~ **Geklärt 18.11.2026: ja, nur Partei A.**                                                                                                              | –         | –            |
+| O8     | Liegt der Hostname `home-server.fritz.box` fest? Er bestimmt die Passkey-Domain.                                                                                                             | Phase 0   | Mario        |
 
 ## 8. Einkaufsliste
 

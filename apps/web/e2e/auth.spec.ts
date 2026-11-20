@@ -66,22 +66,24 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page,
 
   // Einstellungen: AMIS-Intervall (Standard 60 s) ändern und nach Neuladen prüfen
   await nav.getByRole('link', { name: 'Einstellungen' }).click();
-  const interval = page.getByLabel('Abfrageintervall in Sekunden');
+  const interval = page.locator('#amis-interval');
   await expect(interval).toHaveValue('60');
   // Abschnitte sind zugeklappt, der Status des AMIS-Lesers ist trotzdem sichtbar (ohne Collector: wartend)
   await expect(interval).toBeHidden();
   await expect(page.getByTestId('amis-status')).toBeVisible();
   await expect(page.getByTestId('amis-status')).toHaveAttribute('data-state', 'waiting');
   await expect(page.getByTestId('amis-status')).toContainText('Noch keine Rückmeldung');
+  await expect(page.getByTestId('isg-status')).toHaveAttribute('data-state', 'waiting');
   const shots = process.env.E2E_SCREENSHOTS; // Verzeichnis außerhalb des Repos
   if (shots) await page.screenshot({ path: `${shots}/einstellungen.png`, fullPage: true });
   await page.locator('summary', { hasText: 'AMIS-Leser' }).click();
   if (shots) await page.screenshot({ path: `${shots}/einstellungen-amis.png`, fullPage: true });
   await interval.fill('120');
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.locator('details', { has: interval }).getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Gespeichert' })).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel('Abfrageintervall in Sekunden')).toHaveValue('120');
+  await expect(interval).toHaveValue('120');
+  await expect(page.locator('#isg-interval')).toHaveValue('60');
 
   // NetzOÖ-CSV importieren: Vorschau, Import, Protokoll, erneute Prüfung ohne neue Werte
   await nav.getByRole('link', { name: 'Strom' }).click();

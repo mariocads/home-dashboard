@@ -7,7 +7,7 @@ Ein selbst gehostetes Dashboard für ein Zweiparteienhaus. Es erfasst die Energi
 - **TypeScript Full-Stack:** SvelteKit 3, Node 24, PostgreSQL/TimescaleDB, Drizzle ORM
 - **Tests:** Vitest, property-based Tests mit fast-check, Playwright im Mobile-Viewport
 
-Gesamtplan und Phasen stehen in [docs/PROJEKTPLAN.md](docs/PROJEKTPLAN.md), der Betrieb ist in [docs/BETRIEB.md](docs/BETRIEB.md) beschrieben.
+Gesamtplan und Phasen stehen in [docs/PROJEKTPLAN.md](docs/PROJEKTPLAN.md), der Betrieb ist in [docs/BETRIEB.md](docs/BETRIEB.md) beschrieben, die Anbindung der Wärmepumpe in [docs/WAERMEPUMPE.md](docs/WAERMEPUMPE.md).
 
 ## Struktur
 

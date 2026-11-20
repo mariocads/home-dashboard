@@ -7,9 +7,18 @@ import {
   saveAdapterStatus,
   setSetting,
 } from '@hd/db';
-import { AMIS_POLL_INTERVAL, MAIN_METER, QUANTITY } from '@hd/domain';
+import { AMIS_POLL_INTERVAL, ISG_POLL_INTERVAL, MAIN_METER, QUANTITY } from '@hd/domain';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { amisStatus, describeAmisError, getAmisInterval, getAmisStatus, getLivePower } from './live.ts';
+import {
+  amisStatus,
+  describeAmisError,
+  describeDeviceError,
+  getAmisInterval,
+  getAmisStatus,
+  getIsgInterval,
+  getIsgStatus,
+  getLivePower,
+} from './live.ts';
 
 describe('Live-Leistung', () => {
   let h: DbHandle;
@@ -85,6 +94,36 @@ describe('Zustand des AMIS-Lesers', () => {
     expect((await getAmisStatus(h.db, t)).state).toBe('waiting');
     await saveAdapterStatus(h.db, { name: 'amis', target: null, lastSuccessAt: t, lastError: null }, t);
     expect((await getAmisStatus(h.db, t)).state).toBe('online');
+    await h.close();
+  });
+});
+
+describe('Zustand der Wärmepumpe (ISG)', () => {
+  const t = new Date('2026-11-20T10:00:00Z');
+
+  it('Ursachen in Worten', () => {
+    expect(describeDeviceError('isg', 'Error: getaddrinfo ENOTFOUND servicewelt.fritz.box')).toMatch(
+      /ISG_HOST/,
+    );
+    expect(describeDeviceError('isg', 'Error: connect ECONNREFUSED 192.0.2.1:502')).toMatch(/Modbus TCP/);
+    expect(describeDeviceError('isg', 'TimeoutError: Keine Antwort')).toMatch(/ISG antwortet nicht/);
+    expect(describeDeviceError('isg', 'ModbusError: Alle Blöcke abgelehnt')).toMatch(/lehnt die Abfrage ab/);
+  });
+
+  it('eigenes Intervall, eigener Zustand', async () => {
+    const h = createDb('pglite://memory');
+    await runMigrations(h);
+    expect(await getIsgInterval(h.db)).toBe(60);
+    expect((await getIsgStatus(h.db, t)).state).toBe('waiting');
+    await saveAdapterStatus(
+      h.db,
+      { name: 'isg', target: 'isg.test:502', lastSuccessAt: null, lastError: 'Error: connect ECONNREFUSED' },
+      t,
+    );
+    expect(await getIsgStatus(h.db, t)).toMatchObject({ state: 'offline', target: 'isg.test:502' });
+    expect((await getAmisStatus(h.db, t)).state).toBe('waiting');
+    await setSetting(h.db, ISG_POLL_INTERVAL.key, 600);
+    expect((await getIsgStatus(h.db, new Date(t.getTime() + 1_000_000))).state).toBe('offline');
     await h.close();
   });
 });

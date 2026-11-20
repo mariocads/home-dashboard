@@ -1,5 +1,11 @@
 import { type AdapterStatusRow, type Db, getAdapterStatus, getSetting, latestReading } from '@hd/db';
-import { AMIS_POLL_INTERVAL, MAIN_METER, QUANTITY, resolveIntegerSetting } from '@hd/domain';
+import {
+  AMIS_POLL_INTERVAL,
+  ISG_POLL_INTERVAL,
+  MAIN_METER,
+  QUANTITY,
+  resolveIntegerSetting,
+} from '@hd/domain';
 
 export interface LivePower {
   watt: number;
@@ -27,10 +33,10 @@ export async function getLivePower(db: Db, now = new Date()): Promise<LivePower 
   };
 }
 
-export type AmisState = 'online' | 'offline' | 'collector' | 'waiting';
+export type DeviceState = 'online' | 'offline' | 'collector' | 'waiting';
 
-export interface AmisStatus {
-  state: AmisState;
+export interface DeviceStatus {
+  state: DeviceState;
   /** Ursache und nächster Schritt in Worten, null wenn alles in Ordnung ist */
   hint: string | null;
   /** Technische Meldung der letzten Abfrage (ohne Inhalte der Antwort) */
@@ -42,24 +48,56 @@ export interface AmisStatus {
   checkedAt: string | null;
 }
 
+type Device = 'amis' | 'isg';
+
+/** Ursachen in Worten je Gerät; die erste passende Regel gewinnt. */
+const HINTS: Record<Device, [RegExp, string][]> = {
+  amis: [
+    [
+      /ENOTFOUND|EAI_AGAIN/,
+      'Der Name des Lesers lässt sich nicht auflösen. In der .env AMIS_URL mit der festen IP setzen.',
+    ],
+    [
+      /EHOSTUNREACH|ENETUNREACH|ETIMEDOUT|ECONNREFUSED|ECONNRESET|TimeoutError/,
+      'Der Leser antwortet nicht. Ist er eingeschaltet und im WLAN? In der FRITZ!Box prüfen, ob er aktiv ist.',
+    ],
+    [/HTTP \d{3}/, 'Der Leser antwortet mit einem Fehler.'],
+    [/AmisPayloadError/, 'Die Antwort des Lesers hat ein unerwartetes Format.'],
+  ],
+  isg: [
+    [
+      /ENOTFOUND|EAI_AGAIN/,
+      'Der Name der ISG lässt sich nicht auflösen. In der .env ISG_HOST mit der festen IP setzen.',
+    ],
+    [
+      /ECONNREFUSED/,
+      'Die ISG nimmt keine Modbus-Verbindung an (Port 502). Ist Modbus TCP in der SERVICEWELT aktiv?',
+    ],
+    [
+      /EHOSTUNREACH|ENETUNREACH|ETIMEDOUT|ECONNRESET|TimeoutError/,
+      'Die ISG antwortet nicht. Ist sie eingeschaltet und im Netzwerk? In der FRITZ!Box prüfen, ob sie aktiv ist.',
+    ],
+    [/ModbusError/, 'Die ISG lehnt die Abfrage ab. Passt die Anlage zur Registerliste (WPM)?'],
+  ],
+};
+
 /** Übersetzt die Fehlermeldung des Collectors in Ursache und nächsten Schritt. */
-export function describeAmisError(error: string): string {
-  if (/ENOTFOUND|EAI_AGAIN/.test(error)) {
-    return 'Der Name des Lesers lässt sich nicht auflösen. In der .env AMIS_URL mit der festen IP setzen.';
-  }
-  if (/EHOSTUNREACH|ENETUNREACH|ETIMEDOUT|ECONNREFUSED|ECONNRESET|TimeoutError/.test(error)) {
-    return 'Der Leser antwortet nicht. Ist er eingeschaltet und im WLAN? In der FRITZ!Box prüfen, ob er aktiv ist.';
-  }
-  if (/HTTP \d{3}/.test(error)) return 'Der Leser antwortet mit einem Fehler.';
-  if (/AmisPayloadError/.test(error)) return 'Die Antwort des Lesers hat ein unerwartetes Format.';
-  return 'Die Abfrage ist fehlgeschlagen.';
+export function describeDeviceError(device: Device, error: string): string {
+  return HINTS[device].find(([re]) => re.test(error))?.[1] ?? 'Die Abfrage ist fehlgeschlagen.';
 }
 
+export const describeAmisError = (error: string) => describeDeviceError('amis', error);
+
 /**
- * Zustand des AMIS-Lesers aus Sicht des Collectors. Meldet sich der Collector länger als drei
+ * Zustand einer Datenquelle aus Sicht des Collectors. Meldet sich der Collector länger als drei
  * Abfrageintervalle nicht, läuft er vermutlich nicht.
  */
-export function amisStatus(row: AdapterStatusRow | null, intervalS: number, now = new Date()): AmisStatus {
+export function deviceStatus(
+  device: Device,
+  row: AdapterStatusRow | null,
+  intervalS: number,
+  now = new Date(),
+): DeviceStatus {
   if (!row) {
     return {
       state: 'waiting',
@@ -83,11 +121,23 @@ export function amisStatus(row: AdapterStatusRow | null, intervalS: number, now 
       hint: 'Der Collector fragt nicht mehr ab. Am Server „docker compose logs collector“ prüfen.',
     };
   }
-  if (row.lastError) return { ...base, state: 'offline', hint: describeAmisError(row.lastError) };
+  if (row.lastError) return { ...base, state: 'offline', hint: describeDeviceError(device, row.lastError) };
   return { ...base, state: 'online', hint: null };
 }
 
-export async function getAmisStatus(db: Db, now = new Date()): Promise<AmisStatus> {
+export const amisStatus = (row: AdapterStatusRow | null, intervalS: number, now = new Date()) =>
+  deviceStatus('amis', row, intervalS, now);
+
+export async function getAmisStatus(db: Db, now = new Date()): Promise<DeviceStatus> {
   const [row, intervalS] = await Promise.all([getAdapterStatus(db, 'amis'), getAmisInterval(db)]);
   return amisStatus(row, intervalS, now);
+}
+
+export async function getIsgInterval(db: Db): Promise<number> {
+  return resolveIntegerSetting(ISG_POLL_INTERVAL, await getSetting(db, ISG_POLL_INTERVAL.key));
+}
+
+export async function getIsgStatus(db: Db, now = new Date()): Promise<DeviceStatus> {
+  const [row, intervalS] = await Promise.all([getAdapterStatus(db, 'isg'), getIsgInterval(db)]);
+  return deviceStatus('isg', row, intervalS, now);
 }

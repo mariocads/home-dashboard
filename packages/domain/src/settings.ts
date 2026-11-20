@@ -19,6 +19,16 @@ export const AMIS_POLL_INTERVAL: IntegerSetting = {
   max: 3600,
 };
 
+/** Abfrageintervall der Wärmepumpe (ISG, Modbus TCP). */
+export const ISG_POLL_INTERVAL: IntegerSetting = {
+  key: 'isg.pollIntervalSeconds',
+  label: 'Abfrageintervall Wärmepumpe',
+  unit: 's',
+  default: 60,
+  min: 10,
+  max: 3600,
+};
+
 /** Liest einen gespeicherten Wert; fehlende oder ungültige Werte ergeben den Standardwert. */
 export function resolveIntegerSetting(def: IntegerSetting, stored: unknown): number {
   return typeof stored === 'number' && Number.isInteger(stored) && stored >= def.min && stored <= def.max
