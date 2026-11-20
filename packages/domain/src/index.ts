@@ -26,6 +26,7 @@ export {
   type StoredInterval,
   summarizeIntervals,
 } from './netzooe.ts';
+export { bucketAverage, counterIncrease, type LinePoint, type TimedValue, workRatio } from './heatpump.ts';
 export {
   ISG_BLOCKS,
   ISG_SOURCE,

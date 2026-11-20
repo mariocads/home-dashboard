@@ -86,11 +86,26 @@
         <span class="hint muted">Tarife erfassen</span>
       {/if}
     </a>
-    <article class="card tile">
-      <span class="label">Wärmepumpe</span>
-      <span class="value">–</span>
-      <span class="hint muted">ab Phase 3 (ISG)</span>
-    </article>
+    <a class="card tile link" href={resolve('/waermepumpe')} data-testid="tile-heatpump">
+      <span class="label">Wärmepumpe heute</span>
+      {#if data.heatPump}
+        <span class="value" class:stale={data.heatPump.stale}>
+          {data.heatPump.powerKwh !== null ? `${formatKwh(data.heatPump.powerKwh)} kWh` : '–'}
+        </span>
+        <span class="hint muted">
+          {data.heatPump.stale
+            ? 'veraltet'
+            : data.heatPump.inverterW
+              ? `läuft · ${kw.format(data.heatPump.inverterW / 1000)} kW`
+              : 'Verdichter aus'}{data.heatPump.ratio !== null
+            ? ` · AZ ${kw.format(data.heatPump.ratio)}`
+            : ''}
+        </span>
+      {:else}
+        <span class="value">–</span>
+        <span class="hint muted">noch keine Daten von der ISG</span>
+      {/if}
+    </a>
   </section>
 </div>
 

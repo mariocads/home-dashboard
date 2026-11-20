@@ -169,6 +169,51 @@ export async function readingTs(
   return row?.ts ?? null;
 }
 
+/**
+ * Erster bzw. letzter Messwert einer Größe im Bereich [from, to); from = null heißt „ohne Untergrenze“.
+ */
+export async function edgeReading(
+  db: Db,
+  meterId: number,
+  quantity: string,
+  from: Date | null,
+  to: Date,
+  which: 'first' | 'last',
+): Promise<{ ts: Date; value: number } | null> {
+  const [row] = await db
+    .select({ ts: readings.ts, value: readings.value })
+    .from(readings)
+    .where(
+      and(
+        eq(readings.meterId, meterId),
+        eq(readings.quantity, quantity),
+        from ? gte(readings.ts, from) : undefined,
+        lt(readings.ts, to),
+      ),
+    )
+    .orderBy(which === 'first' ? asc(readings.ts) : desc(readings.ts))
+    .limit(1);
+  return row ?? null;
+}
+
+/** Jüngster Wert je Größe einer Messstelle, nur Werte ab since (begrenzt den Suchbereich). */
+export async function latestByQuantity(
+  db: Db,
+  meterId: number,
+  since: Date,
+): Promise<Map<string, { ts: Date; value: number }>> {
+  const rows = await db
+    .selectDistinctOn([readings.quantity], {
+      quantity: readings.quantity,
+      ts: readings.ts,
+      value: readings.value,
+    })
+    .from(readings)
+    .where(and(eq(readings.meterId, meterId), gte(readings.ts, since)))
+    .orderBy(readings.quantity, desc(readings.ts));
+  return new Map(rows.map((r) => [r.quantity, { ts: r.ts, value: r.value }]));
+}
+
 export type NewImport = typeof imports.$inferInsert;
 export type ImportRecord = typeof imports.$inferSelect;
 

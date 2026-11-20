@@ -21,6 +21,8 @@ export {
   type NewInstallment,
   type NewInvoice,
   type NewTariff,
+  edgeReading,
+  latestByQuantity,
   latestReading,
   listImports,
   type MeterDefinition,

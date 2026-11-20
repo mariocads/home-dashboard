@@ -11,6 +11,11 @@
     { href: '/', label: 'Übersicht', icon: 'M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z' },
     { href: '/strom', label: 'Strom', icon: 'M13 2L4 14h7l-1 8 9-12h-7z' },
     {
+      href: '/waermepumpe',
+      label: 'Wärme',
+      icon: 'M12 2c1 4 6 6.5 6 12a6 6 0 0 1-12 0c0-3.3 2-5.6 3.5-7.5.2 2.3 1.2 3.6 2.6 3.9C12.6 7.6 11.4 5 12 2z',
+    },
+    {
       href: '/kosten',
       label: 'Kosten',
       icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v2h2v2h-2v4h2v2h-2v2h-2v-2H9v-2h2v-4H9V9h2V7z',
@@ -64,7 +69,7 @@
     height: calc(var(--nav-h) + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     background: color-mix(in srgb, var(--surface) 92%, transparent);
     backdrop-filter: blur(12px);
     border-top: 1px solid var(--border);

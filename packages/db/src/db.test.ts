@@ -15,6 +15,8 @@ import {
   listInstallments,
   listInvoices,
   listTariffs,
+  edgeReading,
+  latestByQuantity,
   latestReading,
   listImports,
   readingsInRange,
@@ -198,6 +200,28 @@ describe('Import-Daten', () => {
     expect(await readingTs(handle.db, id, q, 'first')).toEqual(t(0));
     expect(await readingTs(handle.db, id, q, 'last')).toEqual(t(2));
     expect(await readingTs(handle.db, id, q, 'last', 'netzooe_csv')).toEqual(t(1));
+  });
+
+  it('erster/letzter Wert im Bereich und jüngster Wert je Größe', async () => {
+    const id = await ensureMeter(handle.db, { slug: 'wp-test', name: 'WP', kind: 'heatpump', unit: 'kWh' });
+    const m = (min: number) => new Date(Date.UTC(2026, 10, 20, 0, min));
+    await insertReadings(handle.db, id, 'isg', [
+      { quantity: 'a', ts: m(-5), value: 1 },
+      { quantity: 'a', ts: m(10), value: 2 },
+      { quantity: 'a', ts: m(20), value: 3 },
+      { quantity: 'b', ts: m(15), value: 7 },
+      { quantity: 'b', ts: m(-500), value: 6 },
+    ]);
+    expect(await edgeReading(handle.db, id, 'a', null, m(0), 'last')).toEqual({ ts: m(-5), value: 1 });
+    expect(await edgeReading(handle.db, id, 'a', m(0), m(60), 'first')).toEqual({ ts: m(10), value: 2 });
+    expect(await edgeReading(handle.db, id, 'a', m(0), m(20), 'last')).toEqual({ ts: m(10), value: 2 });
+    expect(await edgeReading(handle.db, id, 'c', null, m(60), 'last')).toBeNull();
+    const latest = await latestByQuantity(handle.db, id, m(-60));
+    expect([...latest]).toEqual([
+      ['a', { ts: m(20), value: 3 }],
+      ['b', { ts: m(15), value: 7 }],
+    ]);
+    expect((await latestByQuantity(handle.db, id, m(16))).has('b')).toBe(false);
   });
 
   it('Import-Protokoll: anlegen, nach Hash finden, neueste zuerst', async () => {

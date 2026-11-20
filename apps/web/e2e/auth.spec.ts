@@ -168,6 +168,29 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page,
   await expect(page.getByTestId('cost-netz')).toHaveText('€ 1,20');
   await nav.getByRole('link', { name: 'Übersicht' }).click();
   await expect(page.getByTestId('tile-cost')).toContainText('€ 1,32');
+
+  // Wärmepumpe (erfundene Werte aus e2e/seed-heatpump.ts): Kachel, aktuelle Werte, Verläufe, Vortag
+  await expect(page.getByTestId('tile-heatpump')).toContainText('läuft · 1,50 kW');
+  await page.getByTestId('tile-heatpump').click();
+  await expect(page.getByRole('heading', { name: 'Wärmepumpe', level: 1 })).toBeVisible();
+  await expect(page.getByTestId('wp-state')).toContainText('Verdichter läuft · 1,50 kW');
+  await expect(page.getByTestId('wp-outdoor')).toContainText('3,5 °C');
+  await expect(page.getByTestId('wp-dhw')).toContainText('48,5 °C');
+  await expect(page.getByTestId('wp-efficiency')).toContainText('3,50');
+  await expect(page.getByTestId('wp-circuits')).toContainText('Raum Heizkreis 4 · 48,0 %');
+  await expect(page.getByTestId('wp-day')).toHaveText('Heute');
+  await expect(page.getByTestId('wp-heat')).toContainText('kWh');
+  await expect(page.getByTestId('wp-temps').getByText('Vorlauf').first()).toBeVisible();
+  await expect(page.getByTestId('wp-circuits')).toContainText('Heizkreis 1');
+  if (process.env.E2E_SCREENSHOTS) {
+    await page.screenshot({ path: `${process.env.E2E_SCREENSHOTS}/waermepumpe.png`, fullPage: true });
+  }
+  await page.getByRole('link', { name: 'Vorheriger Tag' }).click();
+  await expect(page.getByTestId('wp-day')).not.toHaveText('Heute');
+  await expect(page.getByTestId('wp-temps')).toContainText('Keine Daten an diesem Tag');
+  await nav.getByRole('link', { name: 'Wärme' }).click();
+  await expect(page.getByTestId('wp-day')).toHaveText('Heute');
+  await nav.getByRole('link', { name: 'Übersicht' }).click();
   await page.goto('/strom/import');
 
   // Optional lokal: echten Export prüfen (Datei bleibt außerhalb des Repos), z. B. E2E_REAL_CSV=../../prep/x.csv

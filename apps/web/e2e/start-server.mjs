@@ -20,6 +20,13 @@ if (!url) {
 }
 writeFileSync('.pglite/e2e-setup-url.txt', url);
 
+// Erfundene Werte der Wärmepumpe für die Ansicht /waermepumpe
+const seed = spawnSync(process.execPath, ['e2e/seed-heatpump.ts'], { encoding: 'utf8', env: process.env });
+if (seed.status !== 0) {
+  console.error(seed.stderr);
+  process.exit(1);
+}
+
 // Uploads (NetzOÖ-Export) sind größer als das Standardlimit von adapter-node (512 KB).
 process.env.BODY_SIZE_LIMIT ??= '25M';
 await import('../build/index.js');
