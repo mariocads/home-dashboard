@@ -111,14 +111,14 @@ describe('cookies', () => {
       delete: ReturnType<typeof vi.fn>;
     };
 
-  it('Session-Cookie: HttpOnly, SameSite=Strict, Secure bei HTTPS', () => {
+  it('Session-Cookie: HttpOnly, SameSite=Lax, Secure bei HTTPS', () => {
     const c = fakeCookies();
     const expires = new Date('2030-01-01');
     setSessionCookie(c, config, 'tok', expires);
     expect(c.set).toHaveBeenCalledWith(SESSION_COOKIE, 'tok', {
       path: '/',
       httpOnly: true,
-      sameSite: 'strict',
+      sameSite: 'lax',
       secure: true,
       expires,
     });

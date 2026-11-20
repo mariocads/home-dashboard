@@ -5,8 +5,14 @@ export const SESSION_COOKIE = 'hd_session';
 export const SETUP_COOKIE = 'hd_setup';
 export const CHALLENGE_COOKIE = 'hd_challenge';
 
+/**
+ * SameSite=Lax statt Strict: Bei Strict schickt der Browser die Cookies nicht mit, wenn die Seite
+ * über einen Link aus einer anderen App oder Seite geöffnet wurde (z. B. Mail), und Safari behält
+ * das auch beim Neuladen bei – man landet immer wieder beim Login. Fremde Formular-POSTs bekommen
+ * auch mit Lax keine Cookies; zusätzlich prüft SvelteKit die Origin, die API nimmt nur JSON an.
+ */
 function base(config: AppConfig) {
-  return { path: '/', httpOnly: true, sameSite: 'strict', secure: config.secureCookies } as const;
+  return { path: '/', httpOnly: true, sameSite: 'lax', secure: config.secureCookies } as const;
 }
 
 export function setSessionCookie(cookies: Cookies, config: AppConfig, token: string, expires: Date) {

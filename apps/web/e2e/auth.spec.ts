@@ -29,7 +29,7 @@ function trackConsoleErrors(page: Page) {
   return errors;
 }
 
-test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page }) => {
+test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page, baseURL }) => {
   const errors = trackConsoleErrors(page);
   await addVirtualAuthenticator(page);
 
@@ -55,6 +55,13 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page 
   const nav = page.getByRole('navigation', { name: 'Hauptnavigation' });
   await expect(nav).toBeVisible();
   await nav.getByRole('link', { name: 'Strom' }).click();
+  await expect(page.getByRole('heading', { name: 'Strom' })).toBeVisible();
+
+  // Aufruf über einen Link aus einer anderen Seite (z. B. Mail) und Neuladen: die Sitzung bleibt
+  await page.goto(`data:text/html,<a href="${baseURL}/strom">Dashboard</a>`);
+  await page.getByRole('link', { name: 'Dashboard' }).click();
+  await expect(page.getByRole('heading', { name: 'Strom' })).toBeVisible();
+  await page.reload();
   await expect(page.getByRole('heading', { name: 'Strom' })).toBeVisible();
 
   // Einstellungen: AMIS-Intervall (Standard 60 s) ändern und nach Neuladen prüfen
