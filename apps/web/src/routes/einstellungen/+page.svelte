@@ -22,6 +22,11 @@
   } as const;
   const status = $derived(data.amis.status);
 
+  // Abschnitte sind zugeklappt; offen nur, wenn es dort etwas zu sehen oder zu tun gibt.
+  const amisOpen = $derived(!!form && ('amisError' in form || 'amisSaved' in form));
+  const passkeysOpen = $derived(data.recovered || !!error || (!!form && 'error' in form && !!form.error));
+  const codesOpen = $derived(!!newCodes || (!!form && 'codes' in form && !!form.codes));
+
   async function addPasskey() {
     busy = true;
     error = '';
@@ -49,110 +54,130 @@
     </section>
   {/if}
 
-  <section class="card stack" aria-labelledby="amis-heading">
-    <h2 id="amis-heading">AMIS-Leser</h2>
-    <div class="status" data-testid="amis-status" data-state={status.state}>
-      <span class="dot {status.state}" aria-hidden="true"></span>
-      <strong>{STATE_LABELS[status.state]}</strong>
-    </div>
-    {#if status.hint}<p class="small">{status.hint}</p>{/if}
-    <dl class="facts small">
-      {#if status.target}
-        <dt>Adresse</dt>
-        <dd>{status.target}</dd>
-      {/if}
-      {#if status.checkedAt}
-        <dt>Letzte Abfrage</dt>
-        <dd>{fmtTime.format(new Date(status.checkedAt))}</dd>
-      {/if}
-      <dt>Letzter Messwert</dt>
-      <dd>
-        {#if data.amis.power}
-          {fmtTime.format(new Date(data.amis.power.ts))}
-        {:else}
-          noch keiner
+  <details class="card section" open={amisOpen}>
+    <summary>
+      <h2>AMIS-Leser</h2>
+      <span class="status" data-testid="amis-status" data-state={status.state}>
+        <span class="dot {status.state}" aria-hidden="true"></span>
+        {STATE_LABELS[status.state]}
+      </span>
+    </summary>
+    <div class="body stack">
+      {#if status.hint}<p class="small">{status.hint}</p>{/if}
+      <dl class="facts small">
+        {#if status.target}
+          <dt>Adresse</dt>
+          <dd>{status.target}</dd>
         {/if}
-      </dd>
-      {#if status.error}
-        <dt>Meldung</dt>
-        <dd><code>{status.error}</code></dd>
-      {/if}
-    </dl>
-    <form
-      method="POST"
-      action="?/saveAmisInterval"
-      use:enhance={() =>
-        async ({ update }) =>
-          update({ reset: false })}
-    >
-      <label for="amis-interval">Abfrageintervall in Sekunden</label>
-      <div class="row">
-        <input
-          id="amis-interval"
-          name="interval"
-          type="number"
-          inputmode="numeric"
-          required
-          min={data.amis.min}
-          max={data.amis.max}
-          step="1"
-          value={data.amis.interval}
-        />
-        <button class="secondary" type="submit">Speichern</button>
-      </div>
-    </form>
-    {#if form && 'amisError' in form && form.amisError}
-      <p class="error" role="alert">{form.amisError}</p>
-    {:else if form && 'amisSaved' in form && form.amisSaved}
-      <p class="muted small" role="status">
-        Gespeichert. Der Collector übernimmt den Wert innerhalb von 10 s.
-      </p>
-    {/if}
-  </section>
-
-  <section class="card stack">
-    <h2>Passkeys</h2>
-    <ul class="list" data-testid="passkey-list">
-      {#each data.passkeys as pk (pk.id)}
-        <li>
-          <div>
-            <strong>{pk.name}</strong>
-            <div class="muted small">
-              angelegt {fmt.format(new Date(pk.createdAt))}{#if pk.lastUsedAt}
-                · zuletzt {fmt.format(new Date(pk.lastUsedAt))}{/if}{#if pk.synced}
-                · synchronisiert{/if}
-            </div>
-          </div>
-          {#if data.passkeys.length > 1}
-            <form method="POST" action="?/deletePasskey" use:enhance>
-              <input type="hidden" name="id" value={pk.id} />
-              <button class="danger" type="submit" aria-label="Passkey {pk.name} entfernen">Entfernen</button>
-            </form>
+        {#if status.checkedAt}
+          <dt>Letzte Abfrage</dt>
+          <dd>{fmtTime.format(new Date(status.checkedAt))}</dd>
+        {/if}
+        <dt>Letzter Messwert</dt>
+        <dd>
+          {#if data.amis.power}
+            {fmtTime.format(new Date(data.amis.power.ts))}
+          {:else}
+            noch keiner
           {/if}
-        </li>
-      {/each}
-    </ul>
-    <button class="secondary" onclick={addPasskey} disabled={busy}>
-      {busy ? 'Warte auf Passkey…' : 'Passkey für dieses Gerät hinzufügen'}
-    </button>
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
-    {#if form && 'error' in form && form.error}<p class="error" role="alert">{form.error}</p>{/if}
-    <p class="muted small">Tipp: mindestens zwei Passkeys anlegen, z. B. am Handy und am Laptop.</p>
-  </section>
+        </dd>
+        {#if status.error}
+          <dt>Meldung</dt>
+          <dd><code>{status.error}</code></dd>
+        {/if}
+      </dl>
+      <form
+        method="POST"
+        action="?/saveAmisInterval"
+        use:enhance={() =>
+          async ({ update }) =>
+            update({ reset: false })}
+      >
+        <label for="amis-interval">Abfrageintervall in Sekunden</label>
+        <div class="row">
+          <input
+            id="amis-interval"
+            name="interval"
+            type="number"
+            inputmode="numeric"
+            required
+            min={data.amis.min}
+            max={data.amis.max}
+            step="1"
+            value={data.amis.interval}
+          />
+          <button class="secondary" type="submit">Speichern</button>
+        </div>
+      </form>
+      {#if form && 'amisError' in form && form.amisError}
+        <p class="error" role="alert">{form.amisError}</p>
+      {:else if form && 'amisSaved' in form && form.amisSaved}
+        <p class="muted small" role="status">
+          Gespeichert. Der Collector übernimmt den Wert innerhalb von 10 s.
+        </p>
+      {/if}
+    </div>
+  </details>
 
-  <section class="card stack">
-    <h2>Recovery-Codes</h2>
-    {#if form && 'codes' in form && form.codes}
-      <RecoveryCodes codes={form.codes} />
-    {:else if newCodes}
-      <RecoveryCodes codes={newCodes} />
-    {:else}
-      <p class="muted">{data.recoveryCodesLeft} von 10 Codes noch unbenutzt.</p>
-    {/if}
-    <form method="POST" action="?/regenerateCodes" use:enhance>
-      <button class="secondary" type="submit">Neue Codes erzeugen (alte werden ungültig)</button>
-    </form>
-  </section>
+  <details class="card section" open={passkeysOpen}>
+    <summary>
+      <h2>Passkeys</h2>
+      <span class="summary-info">
+        {data.passkeys.length === 1 ? '1 Passkey' : `${data.passkeys.length} Passkeys`}
+      </span>
+    </summary>
+    <div class="body stack">
+      <ul class="list" data-testid="passkey-list">
+        {#each data.passkeys as pk (pk.id)}
+          <li>
+            <div>
+              <strong>{pk.name}</strong>
+              <div class="muted small">
+                angelegt {fmt.format(new Date(pk.createdAt))}{#if pk.lastUsedAt}
+                  · zuletzt {fmt.format(new Date(pk.lastUsedAt))}{/if}{#if pk.synced}
+                  · synchronisiert{/if}
+              </div>
+            </div>
+            {#if data.passkeys.length > 1}
+              <form method="POST" action="?/deletePasskey" use:enhance>
+                <input type="hidden" name="id" value={pk.id} />
+                <button class="danger" type="submit" aria-label="Passkey {pk.name} entfernen">
+                  Entfernen
+                </button>
+              </form>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+      <button class="secondary" onclick={addPasskey} disabled={busy}>
+        {busy ? 'Warte auf Passkey…' : 'Passkey für dieses Gerät hinzufügen'}
+      </button>
+      {#if error}<p class="error" role="alert">{error}</p>{/if}
+      {#if form && 'error' in form && form.error}<p class="error" role="alert">{form.error}</p>{/if}
+      <p class="muted small">Tipp: mindestens zwei Passkeys anlegen, z. B. am Handy und am Laptop.</p>
+    </div>
+  </details>
+
+  <details class="card section" open={codesOpen}>
+    <summary>
+      <h2>Recovery-Codes</h2>
+      <span class="summary-info" class:low={data.recoveryCodesLeft <= 2}>
+        {data.recoveryCodesLeft} von 10 unbenutzt
+      </span>
+    </summary>
+    <div class="body stack">
+      {#if form && 'codes' in form && form.codes}
+        <RecoveryCodes codes={form.codes} />
+      {:else if newCodes}
+        <RecoveryCodes codes={newCodes} />
+      {:else}
+        <p class="muted">{data.recoveryCodesLeft} von 10 Codes noch unbenutzt.</p>
+      {/if}
+      <form method="POST" action="?/regenerateCodes" use:enhance>
+        <button class="secondary" type="submit">Neue Codes erzeugen (alte werden ungültig)</button>
+      </form>
+    </div>
+  </details>
 
   <section class="card">
     <form method="POST" action="?/logout">
@@ -200,10 +225,61 @@
     border-color: var(--energy);
   }
 
+  .section > summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 32px;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .section > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .section > summary h2 {
+    flex: 1;
+    margin: 0;
+  }
+
+  /* Pfeil rechts, zeigt nach unten wenn zu, nach oben wenn offen */
+  .section > summary::after {
+    content: '';
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin: 0 4px 4px;
+    border-right: 2px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    transform: rotate(45deg);
+    transition: transform 0.15s;
+  }
+
+  .section[open] > summary::after {
+    margin-bottom: -4px;
+    transform: rotate(-135deg);
+  }
+
+  .section > .body {
+    margin-top: var(--gap);
+  }
+
+  .summary-info {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .summary-info.low {
+    color: var(--danger);
+  }
+
   .status {
     display: flex;
     align-items: center;
     gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
   }
 
   .dot {

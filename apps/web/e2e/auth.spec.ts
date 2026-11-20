@@ -68,9 +68,15 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page,
   await nav.getByRole('link', { name: 'Einstellungen' }).click();
   const interval = page.getByLabel('Abfrageintervall in Sekunden');
   await expect(interval).toHaveValue('60');
-  // ohne Collector: noch keine Rückmeldung vom AMIS-Leser
+  // Abschnitte sind zugeklappt, der Status des AMIS-Lesers ist trotzdem sichtbar (ohne Collector: wartend)
+  await expect(interval).toBeHidden();
+  await expect(page.getByTestId('amis-status')).toBeVisible();
   await expect(page.getByTestId('amis-status')).toHaveAttribute('data-state', 'waiting');
   await expect(page.getByTestId('amis-status')).toContainText('Noch keine Rückmeldung');
+  const shots = process.env.E2E_SCREENSHOTS; // Verzeichnis außerhalb des Repos
+  if (shots) await page.screenshot({ path: `${shots}/einstellungen.png`, fullPage: true });
+  await page.locator('summary', { hasText: 'AMIS-Leser' }).click();
+  if (shots) await page.screenshot({ path: `${shots}/einstellungen-amis.png`, fullPage: true });
   await interval.fill('120');
   await page.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Gespeichert' })).toBeVisible();
@@ -167,7 +173,6 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page,
     await page.getByLabel('CSV-Datei').setInputFiles(process.env.E2E_REAL_CSV);
     await page.getByRole('button', { name: 'Prüfen' }).click();
     await expect(page.getByTestId('import-preview')).toBeVisible({ timeout: 30_000 });
-    const shots = process.env.E2E_SCREENSHOTS; // Verzeichnis außerhalb des Repos
     if (shots) await page.screenshot({ path: `${shots}/import-preview.png`, fullPage: true });
     await page.getByTestId('import-submit').click();
     await expect(page.getByRole('status').filter({ hasText: 'Import abgeschlossen' })).toBeVisible({
