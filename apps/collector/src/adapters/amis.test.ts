@@ -2,6 +2,7 @@ import {
   createDb,
   type DbHandle,
   ensureMeter,
+  getAdapterStatus,
   insertReadings,
   latestReading,
   readingsInRange,
@@ -98,6 +99,10 @@ describe('AMIS-Adapter', () => {
     await adapter.start({ db: h.db, log });
     await adapter.stop();
     expect(adapter.status().lastError).toBe('Error: HTTP 500');
+    expect(await getAdapterStatus(h.db, 'amis')).toMatchObject({
+      lastError: 'Error: HTTP 500',
+      lastSuccessAt: null,
+    });
 
     await adapter.pollOnce();
     expect(adapter.status().lastError).toBe('TypeError: fetch failed (ENOTFOUND)');
@@ -180,6 +185,7 @@ describe('AMIS-Adapter', () => {
     expect(adapter.status().lastError).not.toBeNull();
     await adapter.pollOnce();
     expect(lines.some((l) => l.includes('Viertelstunden konnten nicht abgeleitet werden'))).toBe(true);
+    expect(lines.some((l) => l.includes('Status konnte nicht gespeichert werden'))).toBe(true);
     expect(lines.filter((l) => l.includes('Fehler im Ablauf')).length).toBeLessThanOrEqual(25);
     await adapter.stop();
     h = createDb('pglite://memory'); // für afterEach

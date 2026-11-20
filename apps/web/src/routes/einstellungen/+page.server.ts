@@ -11,7 +11,7 @@ import {
 } from '#lib/server/auth/store.ts';
 import { loadConfig } from '#lib/server/config.ts';
 import { getDb } from '#lib/server/db.ts';
-import { getAmisInterval, getLivePower } from '#lib/server/live.ts';
+import { getAmisInterval, getAmisStatus, getLivePower } from '#lib/server/live.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 const config = loadConfig();
@@ -19,13 +19,20 @@ const config = loadConfig();
 export const load: PageServerLoad = async ({ locals, url }) => {
   const { db } = await getDb();
   const user = locals.user!;
-  const [passkeys, amisInterval, power] = await Promise.all([
+  const [passkeys, amisInterval, power, status] = await Promise.all([
     listPasskeys(db, user.id),
     getAmisInterval(db),
     getLivePower(db),
+    getAmisStatus(db),
   ]);
   return {
-    amis: { interval: amisInterval, min: AMIS_POLL_INTERVAL.min, max: AMIS_POLL_INTERVAL.max, power },
+    amis: {
+      interval: amisInterval,
+      min: AMIS_POLL_INTERVAL.min,
+      max: AMIS_POLL_INTERVAL.max,
+      power,
+      status,
+    },
     recovered: url.searchParams.has('recovered'),
     recoveryCodesLeft: await countRecoveryCodes(db, user.id),
     passkeys: passkeys.map((p) => ({

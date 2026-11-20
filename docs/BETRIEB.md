@@ -225,11 +225,11 @@ rm caddy_data.tgz                            # enthält den privaten Schlüssel 
 
 ## 9. Fehlersuche
 
-| Symptom                                      | Prüfen                                                                                    |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `home-server.fritz.box` nicht erreichbar     | `docker compose -f /opt/stacks/infra/compose.yml logs caddy`, Gerätename in der FRITZ!Box |
-| Zertifikatswarnung                           | Root-Zertifikat installiert? Unter iOS zusätzlich „vollständig vertrauen“ aktiviert?      |
-| „Dieser Browser unterstützt keine Passkeys“  | Die Seite läuft nicht über vertrauenswürdiges HTTPS, siehe Root-Zertifikat                |
-| web nicht healthy                            | `docker compose logs web`, `docker compose ps`                                            |
-| Kachel „Leistung jetzt“ zeigt „veraltet“     | `docker compose logs collector`; Leser im Browser: `http://amis-1.fritz.box/rest`         |
-| collector meldet `ENOTFOUND` beim AMIS-Leser | Name löst im Container nicht auf: in `.env` `AMIS_URL=http://<feste IP>/rest` setzen      |
+| Symptom                                      | Prüfen                                                                                          |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `home-server.fritz.box` nicht erreichbar     | `docker compose -f /opt/stacks/infra/compose.yml logs caddy`, Gerätename in der FRITZ!Box       |
+| Zertifikatswarnung                           | Root-Zertifikat installiert? Unter iOS zusätzlich „vollständig vertrauen“ aktiviert?            |
+| „Dieser Browser unterstützt keine Passkeys“  | Die Seite läuft nicht über vertrauenswürdiges HTTPS, siehe Root-Zertifikat                      |
+| web nicht healthy                            | `docker compose logs web`, `docker compose ps`                                                  |
+| Kachel „Leistung jetzt“ zeigt „veraltet“     | **Einstellungen → AMIS-Leser** zeigt Zustand und Ursache; sonst `docker compose logs collector` |
+| collector meldet `ENOTFOUND` beim AMIS-Leser | Name löst im Container nicht auf: in `.env` `AMIS_URL=http://<feste IP>/rest` setzen            |

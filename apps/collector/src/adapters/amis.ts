@@ -1,4 +1,4 @@
-import { ensureMeter, getSetting, insertReadings } from '@hd/db';
+import { ensureMeter, getSetting, insertReadings, saveAdapterStatus } from '@hd/db';
 import {
   AMIS_POLL_INTERVAL,
   AMIS_SOURCE,
@@ -73,7 +73,17 @@ export function createAmisAdapter(opts: AmisAdapterOptions): Adapter & { pollOnc
       state.lastError = describeError(e);
       ctx.log.warn('AMIS-Abfrage fehlgeschlagen', { error: state.lastError });
     }
+    await reportStatus(ctx);
     await deriveQuarterHours(ctx, meterId);
+  }
+
+  /** Zustand für die Anzeige in der App; ohne Datenbank geht er verloren, das ist unkritisch. */
+  async function reportStatus(c: AdapterContext): Promise<void> {
+    try {
+      await saveAdapterStatus(c.db, { name: 'amis', target: opts.url, ...state }, new Date(now()));
+    } catch (e) {
+      c.log.warn('Status konnte nicht gespeichert werden', { error: describeError(e) });
+    }
   }
 
   /** Fehler hier stören die Abfrage nicht; der nächste Lauf holt alles nach. */

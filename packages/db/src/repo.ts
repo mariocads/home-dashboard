@@ -1,6 +1,15 @@
 import { and, asc, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import type { Db } from './client.ts';
-import { imports, installments, invoices, meters, readings, settings, tariffComponents } from './schema.ts';
+import {
+  adapterStatus,
+  imports,
+  installments,
+  invoices,
+  meters,
+  readings,
+  settings,
+  tariffComponents,
+} from './schema.ts';
 
 // Gemeinsame Datenzugriffe für web und collector.
 
@@ -195,6 +204,20 @@ export async function latestReading(
     .where(and(eq(meters.slug, meterSlug), eq(readings.quantity, quantity)))
     .orderBy(desc(readings.ts))
     .limit(1);
+  return row ?? null;
+}
+
+export type AdapterStatusRow = typeof adapterStatus.$inferSelect;
+export type NewAdapterStatus = Omit<typeof adapterStatus.$inferInsert, 'updatedAt'>;
+
+/** Speichert den Zustand einer Datenquelle (updated_at = jetzt). */
+export async function saveAdapterStatus(db: Db, value: NewAdapterStatus, now = new Date()): Promise<void> {
+  const row = { ...value, updatedAt: now };
+  await db.insert(adapterStatus).values(row).onConflictDoUpdate({ target: adapterStatus.name, set: row });
+}
+
+export async function getAdapterStatus(db: Db, name: string): Promise<AdapterStatusRow | null> {
+  const [row] = await db.select().from(adapterStatus).where(eq(adapterStatus.name, name));
   return row ?? null;
 }
 

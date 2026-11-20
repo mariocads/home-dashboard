@@ -12,6 +12,15 @@
   let newCodes = $state<string[] | null>(null);
 
   const fmt = new Intl.DateTimeFormat('de-AT', { dateStyle: 'medium', timeStyle: 'short' });
+  const fmtTime = new Intl.DateTimeFormat('de-AT', { dateStyle: 'medium', timeStyle: 'medium' });
+
+  const STATE_LABELS = {
+    online: 'Online',
+    offline: 'Offline',
+    collector: 'Collector läuft nicht',
+    waiting: 'Noch keine Rückmeldung',
+  } as const;
+  const status = $derived(data.amis.status);
 
   async function addPasskey() {
     busy = true;
@@ -42,6 +51,33 @@
 
   <section class="card stack" aria-labelledby="amis-heading">
     <h2 id="amis-heading">AMIS-Leser</h2>
+    <div class="status" data-testid="amis-status" data-state={status.state}>
+      <span class="dot {status.state}" aria-hidden="true"></span>
+      <strong>{STATE_LABELS[status.state]}</strong>
+    </div>
+    {#if status.hint}<p class="small">{status.hint}</p>{/if}
+    <dl class="facts small">
+      {#if status.target}
+        <dt>Adresse</dt>
+        <dd>{status.target}</dd>
+      {/if}
+      {#if status.checkedAt}
+        <dt>Letzte Abfrage</dt>
+        <dd>{fmtTime.format(new Date(status.checkedAt))}</dd>
+      {/if}
+      <dt>Letzter Messwert</dt>
+      <dd>
+        {#if data.amis.power}
+          {fmtTime.format(new Date(data.amis.power.ts))}
+        {:else}
+          noch keiner
+        {/if}
+      </dd>
+      {#if status.error}
+        <dt>Meldung</dt>
+        <dd><code>{status.error}</code></dd>
+      {/if}
+    </dl>
     <form
       method="POST"
       action="?/saveAmisInterval"
@@ -72,15 +108,6 @@
         Gespeichert. Der Collector übernimmt den Wert innerhalb von 10 s.
       </p>
     {/if}
-    <p class="muted small" data-testid="amis-status">
-      {#if data.amis.power}
-        Letzter Messwert {fmt.format(new Date(data.amis.power.ts))}{data.amis.power.stale
-          ? ' – veraltet, Leser oder Collector prüfen'
-          : ''}
-      {:else}
-        Noch keine Messwerte empfangen.
-      {/if}
-    </p>
   </section>
 
   <section class="card stack">
@@ -171,5 +198,41 @@
 
   .warn {
     border-color: var(--energy);
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+  }
+
+  .dot.online {
+    background: var(--ok);
+  }
+
+  .dot.offline,
+  .dot.collector {
+    background: var(--danger);
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 12px;
+    margin: 0;
+    color: var(--text-muted);
+  }
+
+  .facts dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 </style>

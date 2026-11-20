@@ -68,6 +68,9 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page,
   await nav.getByRole('link', { name: 'Einstellungen' }).click();
   const interval = page.getByLabel('Abfrageintervall in Sekunden');
   await expect(interval).toHaveValue('60');
+  // ohne Collector: noch keine Rückmeldung vom AMIS-Leser
+  await expect(page.getByTestId('amis-status')).toHaveAttribute('data-state', 'waiting');
+  await expect(page.getByTestId('amis-status')).toContainText('Noch keine Rückmeldung');
   await interval.fill('120');
   await page.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Gespeichert' })).toBeVisible();

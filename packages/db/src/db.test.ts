@@ -8,6 +8,7 @@ import {
   deleteTariff,
   ensureMeter,
   findImportByHash,
+  getAdapterStatus,
   getSetting,
   importTariffData,
   insertReadings,
@@ -19,6 +20,7 @@ import {
   readingsInRange,
   readingTs,
   recordImport,
+  saveAdapterStatus,
   saveInstallment,
   saveInvoice,
   saveTariff,
@@ -78,6 +80,29 @@ describe(`db (${url.split(':')[0]})`, () => {
     const stored = await handle.db.select().from(readings).where(eq(readings.meterId, meter!.id));
     expect(stored).toHaveLength(1);
     expect(stored[0]!.value).toBe(0.7);
+  });
+
+  it('Zustand einer Datenquelle: anlegen und überschreiben', async () => {
+    expect(await getAdapterStatus(handle.db, 'amis')).toBeNull();
+    const t1 = new Date('2026-11-20T10:00:00Z');
+    await saveAdapterStatus(
+      handle.db,
+      { name: 'amis', target: 'http://x/rest', lastSuccessAt: t1, lastError: null },
+      t1,
+    );
+    const t2 = new Date('2026-11-20T10:01:00Z');
+    await saveAdapterStatus(
+      handle.db,
+      { name: 'amis', target: 'http://x/rest', lastSuccessAt: t1, lastError: 'TypeError: fetch failed' },
+      t2,
+    );
+    expect(await getAdapterStatus(handle.db, 'amis')).toEqual({
+      name: 'amis',
+      target: 'http://x/rest',
+      lastSuccessAt: t1,
+      lastError: 'TypeError: fetch failed',
+      updatedAt: t2,
+    });
   });
 
   it('Einstellungen: lesen, anlegen, überschreiben', async () => {

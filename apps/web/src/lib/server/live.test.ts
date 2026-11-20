@@ -1,7 +1,15 @@
-import { createDb, type DbHandle, ensureMeter, insertReadings, runMigrations, setSetting } from '@hd/db';
+import {
+  createDb,
+  type DbHandle,
+  ensureMeter,
+  insertReadings,
+  runMigrations,
+  saveAdapterStatus,
+  setSetting,
+} from '@hd/db';
 import { AMIS_POLL_INTERVAL, MAIN_METER, QUANTITY } from '@hd/domain';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { getAmisInterval, getLivePower } from './live.ts';
+import { amisStatus, describeAmisError, getAmisInterval, getAmisStatus, getLivePower } from './live.ts';
 
 describe('Live-Leistung', () => {
   let h: DbHandle;
@@ -32,5 +40,51 @@ describe('Live-Leistung', () => {
     await setSetting(h.db, AMIS_POLL_INTERVAL.key, 600);
     expect(await getAmisInterval(h.db)).toBe(600);
     expect((await getLivePower(h.db, at(1000)))?.stale).toBe(false);
+  });
+});
+
+describe('Zustand des AMIS-Lesers', () => {
+  const t = new Date('2026-11-20T10:00:00Z');
+  const row = (lastError: string | null) => ({
+    name: 'amis',
+    target: 'http://amis.test/rest',
+    lastSuccessAt: new Date(t.getTime() - 60_000),
+    lastError,
+    updatedAt: t,
+  });
+
+  it('online, offline mit Ursache, Collector still, noch keine Meldung', () => {
+    expect(amisStatus(row(null), 60, t)).toEqual({
+      state: 'online',
+      hint: null,
+      error: null,
+      target: 'http://amis.test/rest',
+      lastSuccessAt: '2026-11-20T09:59:00.000Z',
+      checkedAt: '2026-11-20T10:00:00.000Z',
+    });
+    const offline = amisStatus(row('TypeError: fetch failed (EHOSTUNREACH)'), 60, t);
+    expect(offline).toMatchObject({ state: 'offline', error: 'TypeError: fetch failed (EHOSTUNREACH)' });
+    expect(offline.hint).toMatch(/antwortet nicht/);
+    // 3 × 60 s + 30 s: an der Grenze noch aktuell, danach meldet sich der Collector nicht mehr
+    expect(amisStatus(row(null), 60, new Date(t.getTime() + 210_000)).state).toBe('online');
+    expect(amisStatus(row(null), 60, new Date(t.getTime() + 210_001)).state).toBe('collector');
+    expect(amisStatus(null, 60, t)).toMatchObject({ state: 'waiting', checkedAt: null });
+  });
+
+  it('Ursachen in Worten', () => {
+    expect(describeAmisError('TypeError: fetch failed (ENOTFOUND)')).toMatch(/festen IP/);
+    expect(describeAmisError('TimeoutError: The operation was aborted')).toMatch(/antwortet nicht/);
+    expect(describeAmisError('Error: HTTP 500')).toMatch(/Fehler/);
+    expect(describeAmisError('AmisPayloadError: …')).toMatch(/unerwartetes Format/);
+    expect(describeAmisError('Error: irgendwas')).toBe('Die Abfrage ist fehlgeschlagen.');
+  });
+
+  it('liest den gespeicherten Zustand', async () => {
+    const h = createDb('pglite://memory');
+    await runMigrations(h);
+    expect((await getAmisStatus(h.db, t)).state).toBe('waiting');
+    await saveAdapterStatus(h.db, { name: 'amis', target: null, lastSuccessAt: t, lastError: null }, t);
+    expect((await getAmisStatus(h.db, t)).state).toBe('online');
+    await h.close();
   });
 });

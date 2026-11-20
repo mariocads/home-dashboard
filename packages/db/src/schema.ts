@@ -97,6 +97,20 @@ export const settings = pgTable('settings', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Zustand der Datenquellen im Collector (z. B. AMIS-Leser), nach jeder Abfrage aktualisiert.
+ * updated_at zeigt, ob der Collector selbst noch läuft.
+ */
+export const adapterStatus = pgTable('adapter_status', {
+  name: text('name').primaryKey(),
+  /** Abgefragte Adresse, z. B. http://amis-1.fritz.box/rest */
+  target: text('target'),
+  lastSuccessAt: timestamp('last_success_at', { withTimezone: true }),
+  /** Fehlermeldung der letzten Abfrage ohne Inhalte der Antwort; null bei Erfolg */
+  lastError: text('last_error'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Messdaten ────────────────────────────────────────────────────────────────
 
 /** Messstelle, z. B. Hauptzähler, Wallbox, Wärmezähler Partei A. */
