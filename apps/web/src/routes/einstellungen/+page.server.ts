@@ -1,10 +1,13 @@
 import { latestReading, setSetting } from '@hd/db';
 import {
   AMIS_POLL_INTERVAL,
+  CHARGE_REPORT_SETTINGS,
   GOE_POLL_INTERVAL,
   GOE_QUANTITY,
   ISG_POLL_INTERVAL,
   parseIntegerSetting,
+  parseSettingsSeed,
+  parseTextSetting,
   WP_METER,
   WALLBOX_METER,
   WP_QUANTITY,
@@ -18,6 +21,7 @@ import {
   listPasskeys,
   regenerateRecoveryCodes,
 } from '#lib/server/auth/store.ts';
+import { getMailStatus, loadChargeTexts, loadChargeTodos } from '#lib/server/charge-report.ts';
 import { loadConfig } from '#lib/server/config.ts';
 import { getDb } from '#lib/server/db.ts';
 import {
@@ -47,6 +51,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     goeInterval,
     goeLast,
     goeStatus,
+    chargeTexts,
+    mailStatus,
+    chargeTodos,
   ] = await Promise.all([
     listPasskeys(db, user.id),
     getAmisInterval(db),
@@ -58,6 +65,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     getGoeInterval(db),
     latestReading(db, WALLBOX_METER.slug, GOE_QUANTITY.powerW),
     getGoeStatus(db),
+    loadChargeTexts(db),
+    getMailStatus(db),
+    loadChargeTodos(db),
   ]);
   return {
     amis: {
@@ -80,6 +90,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       max: GOE_POLL_INTERVAL.max,
       lastValueAt: goeLast?.ts.toISOString() ?? null,
       status: goeStatus,
+    },
+    chargeReport: {
+      texts: chargeTexts,
+      limits: Object.fromEntries(CHARGE_REPORT_SETTINGS.map((d) => [d.key, d.maxLength])),
+      mailStatus,
+      openCount: chargeTodos.length,
     },
     recovered: url.searchParams.has('recovered'),
     recoveryCodesLeft: await countRecoveryCodes(db, user.id),
@@ -134,6 +150,41 @@ export const actions: Actions = {
     const { db } = await getDb();
     await setSetting(db, GOE_POLL_INTERVAL.key, parsed.value);
     return { goeSaved: true };
+  },
+
+  saveChargeReport: async ({ request }) => {
+    const form = await request.formData();
+    const names = ['recipient', 'subject', 'filename', 'body'] as const;
+    const values: { key: string; value: string }[] = [];
+    const errors: string[] = [];
+    CHARGE_REPORT_SETTINGS.forEach((def, i) => {
+      const r = parseTextSetting(def, form.get(names[i]!));
+      if (r.ok) values.push({ key: def.key, value: r.value });
+      else errors.push(r.error);
+    });
+    if (errors.length > 0) return fail(400, { chargeErrors: errors });
+    const { db } = await getDb();
+    for (const v of values) await setSetting(db, v.key, v.value);
+    return { chargeSaved: true };
+  },
+
+  /** Lokale Seed-Datei { "settings": { … } } übernehmen (private Werte gehören nicht ins Repo). */
+  importSettings: async ({ request }) => {
+    const file = (await request.formData()).get('file');
+    if (!(file instanceof File) || file.size === 0)
+      return fail(400, { seedErrors: ['Bitte eine JSON-Datei wählen.'] });
+    if (file.size > 64 * 1024) return fail(400, { seedErrors: ['Die Datei ist zu groß (höchstens 64 KB).'] });
+    let json: unknown;
+    try {
+      json = JSON.parse(await file.text());
+    } catch {
+      return fail(400, { seedErrors: ['Die Datei ist kein gültiges JSON.'] });
+    }
+    const parsed = parseSettingsSeed(json);
+    if (!parsed.ok) return fail(400, { seedErrors: parsed.errors });
+    const { db } = await getDb();
+    for (const v of parsed.values) await setSetting(db, v.key, v.value);
+    return { seedImported: parsed.values.length };
   },
 
   regenerateCodes: async ({ locals }) => {

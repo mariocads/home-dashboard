@@ -222,3 +222,35 @@ export const invoices = pgTable(
   },
   (t) => [uniqueIndex('invoices_key').on(t.payee, t.fromDate, t.toDate)],
 );
+
+// ─── Lade-Aufstellung der Wallbox ─────────────────────────────────────────────
+
+/**
+ * Quartalsweise Lade-Aufstellung: originaler CSV-Export der go-e-Cloud, in der App geprüft und
+ * freigegeben, vom Collector per Mail verschickt. Status siehe CHARGE_REPORT_STATUS im domain-Paket.
+ */
+export const chargeReports = pgTable('charge_reports', {
+  /** JJJJ-Qn */
+  quarter: text('quarter').primaryKey(),
+  status: text('status').notNull(),
+  /** Export wie von go-e geliefert (enthält Session-IDs mit Seriennummer; nur in der Datenbank) */
+  csv: text('csv'),
+  /** SHA-256 des Exports; die Freigabe gilt nur für genau diesen Inhalt */
+  csvSha256: text('csv_sha256'),
+  sessionCount: integer('session_count'),
+  energyKwh: doublePrecision('energy_kwh'),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true }),
+  /** Export erneut holen (aus der App angestoßen) */
+  refreshRequestedAt: timestamp('refresh_requested_at', { withTimezone: true }),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  /** SHA-256 des freigegebenen Exports */
+  approvedSha256: text('approved_sha256'),
+  sentAt: timestamp('sent_at', { withTimezone: true }),
+  sentTo: text('sent_to'),
+  /** Testmail an den Absender angefordert bzw. verschickt */
+  testRequestedAt: timestamp('test_requested_at', { withTimezone: true }),
+  testSentAt: timestamp('test_sent_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

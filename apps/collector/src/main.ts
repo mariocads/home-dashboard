@@ -3,6 +3,7 @@ import { type Adapter, createLogger } from './adapter.ts';
 import { createAmisAdapter, DEFAULT_AMIS_URL } from './adapters/amis.ts';
 import { createGoeAdapter } from './adapters/goe.ts';
 import { createIsgAdapter, DEFAULT_ISG_HOST } from './adapters/isg.ts';
+import { createChargeReportJob, mailConfigFromEnv } from './charge-report.ts';
 import { buildHealthReport, createHealthServer } from './health.ts';
 
 const log = createLogger('collector');
@@ -34,6 +35,10 @@ if (isgHost) adapters.push(createIsgAdapter({ host: isgHost }));
 // Seriennummer und gehört deshalb nicht als Standard ins Repo.
 const goeHost = process.env.GOE_HOST;
 if (goeHost) adapters.push(createGoeAdapter({ host: goeHost }));
+
+// Lade-Aufstellung: holt zum Quartalsende den go-e-Export und verschickt ihn nach Freigabe in der App.
+// Mailversand über SMTP (Standard Gmail mit App-Passwort); ohne SMTP_USER/SMTP_PASS aus.
+adapters.push(createChargeReportJob({ goeHost: goeHost || null, mail: mailConfigFromEnv(process.env) }));
 
 for (const adapter of adapters) {
   await adapter.start({ db: handle.db, log: createLogger(adapter.name) });

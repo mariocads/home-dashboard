@@ -65,6 +65,12 @@ services:
       ISG_HOST: ${ISG_HOST-servicewelt.fritz.box}
       # Wallbox go-e (lokale HTTP API v2, nur lesend); leer = Adapter aus.
       GOE_HOST: ${GOE_HOST-}
+      # Mailversand der Lade-Aufstellung (Standard Gmail mit App-Passwort); ohne SMTP_USER/SMTP_PASS aus.
+      SMTP_USER: ${SMTP_USER-}
+      SMTP_PASS: ${SMTP_PASS-}
+      SMTP_HOST: ${SMTP_HOST-}
+      SMTP_PORT: ${SMTP_PORT-}
+      SMTP_FROM: ${SMTP_FROM-}
     depends_on:
       db:
         condition: service_healthy

@@ -42,4 +42,21 @@ export {
   upsertDerivedReadings,
   upsertReadings,
 } from './repo.ts';
+export {
+  approveChargeReport,
+  type ChargeReportRow,
+  getChargeReport,
+  listChargeReports,
+  markChargeReportFailed,
+  markChargeReportSent,
+  markChargeTestMail,
+  pendingChargeReports,
+  reopenChargeReport,
+  requestChargeRefresh,
+  requestChargeReport,
+  requestChargeTestMail,
+  saveChargeExport,
+  setChargeReportError,
+  skipChargeReport,
+} from './charge-reports.ts';
 export * as schema from './schema.ts';

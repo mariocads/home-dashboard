@@ -27,6 +27,16 @@ if (seed.status !== 0) {
   process.exit(1);
 }
 
+// Erfundene Lade-Aufstellung der Wallbox für /ladeaufstellung
+const charge = spawnSync(process.execPath, ['e2e/seed-charge-report.ts'], {
+  encoding: 'utf8',
+  env: process.env,
+});
+if (charge.status !== 0) {
+  console.error(charge.stderr);
+  process.exit(1);
+}
+
 // Uploads (NetzOÖ-Export) sind größer als das Standardlimit von adapter-node (512 KB).
 process.env.BODY_SIZE_LIMIT ??= '25M';
 await import('../build/index.js');

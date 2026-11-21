@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import RecoveryCodes from '#lib/RecoveryCodes.svelte';
   import { defaultDeviceName, describeError, registerPasskey } from '#lib/passkey.ts';
   import type { ActionData, PageData } from './$types';
@@ -23,6 +24,15 @@
 
   // Abschnitte sind zugeklappt; offen nur, wenn es dort etwas zu sehen oder zu tun gibt.
   const passkeysOpen = $derived(data.recovered || !!error || (!!form && 'error' in form && !!form.error));
+  const chargeOpen = $derived(!!form && ('chargeErrors' in form || 'chargeSaved' in form));
+  const seedOpen = $derived(!!form && ('seedErrors' in form || 'seedImported' in form));
+  const MAIL_LABELS = {
+    ready: 'Mail bereit',
+    off: 'Mail nicht eingerichtet',
+    collector: 'Collector läuft nicht',
+    waiting: 'Noch keine Rückmeldung',
+  } as const;
+  const MAIL_DOT = { ready: 'online', off: 'offline', collector: 'collector', waiting: 'waiting' } as const;
   const codesOpen = $derived(!!newCodes || (!!form && 'codes' in form && !!form.codes));
 
   async function addPasskey() {
@@ -148,6 +158,109 @@
     saved: !!form && 'goeSaved' in form,
   })}
 
+  <details class="card section" open={chargeOpen}>
+    <summary>
+      <h2>Lade-Aufstellung</h2>
+      <span class="status" data-testid="charge-mail-status" data-state={data.chargeReport.mailStatus.state}>
+        <span class="dot {MAIL_DOT[data.chargeReport.mailStatus.state]}" aria-hidden="true"></span>
+        {MAIL_LABELS[data.chargeReport.mailStatus.state]}
+      </span>
+    </summary>
+    <div class="body stack">
+      <p class="small">
+        Zum Quartalsende holt die App den Export aus der go-e-Cloud und legt ein Todo an. Nach der Freigabe
+        geht die CSV per Mail an den Empfänger.
+        <a href={resolve('/ladeaufstellung')}>
+          Alle Aufstellungen{data.chargeReport.openCount > 0 ? ` (${data.chargeReport.openCount} offen)` : ''} →
+        </a>
+      </p>
+      {#if data.chargeReport.mailStatus.hint}<p class="small">{data.chargeReport.mailStatus.hint}</p>{/if}
+      {#if data.chargeReport.mailStatus.target}
+        <dl class="facts small">
+          <dt>Absender</dt>
+          <dd>{data.chargeReport.mailStatus.target}</dd>
+        </dl>
+      {/if}
+      <form
+        method="POST"
+        action="?/saveChargeReport"
+        class="stack fields"
+        use:enhance={() =>
+          async ({ update }) =>
+            update({ reset: false })}
+      >
+        <label>
+          Empfänger
+          <input
+            name="recipient"
+            type="email"
+            autocomplete="off"
+            maxlength={data.chargeReport.limits['chargeReport.recipient']}
+            value={data.chargeReport.texts.recipient}
+            data-testid="charge-recipient"
+          />
+        </label>
+        <label>
+          Betreff
+          <input
+            name="subject"
+            maxlength={data.chargeReport.limits['chargeReport.subject']}
+            value={data.chargeReport.texts.subject}
+          />
+        </label>
+        <label>
+          Dateiname des Anhangs
+          <input
+            name="filename"
+            maxlength={data.chargeReport.limits['chargeReport.filename']}
+            value={data.chargeReport.texts.filename}
+          />
+        </label>
+        <label>
+          Text
+          <textarea name="body" rows="5" maxlength={data.chargeReport.limits['chargeReport.body']}
+            >{data.chargeReport.texts.body}</textarea
+          >
+        </label>
+        <p class="muted small">
+          Platzhalter: {'{quartal}'} (Q4 2026), {'{zeitraum}'}, {'{jahr}'}, {'{monat}'} (letzter Monat, 2026-12),
+          {'{anzahl}'}, {'{kwh}'}
+        </p>
+        <button class="secondary" type="submit">Speichern</button>
+      </form>
+      {#if form && 'chargeErrors' in form && form.chargeErrors}
+        {#each form.chargeErrors as e (e)}<p class="error" role="alert">{e}</p>{/each}
+      {:else if form && 'chargeSaved' in form}
+        <p class="muted small" role="status">Gespeichert.</p>
+      {/if}
+    </div>
+  </details>
+
+  <details class="card section" open={seedOpen}>
+    <summary>
+      <h2>Seed-Datei</h2>
+      <span class="summary-info">Einstellungen übernehmen</span>
+    </summary>
+    <div class="body stack">
+      <p class="small">
+        Private Werte (z. B. Empfänger und Betreff der Lade-Aufstellung) aus einer lokalen JSON-Datei
+        übernehmen:
+        <code>{'{ "settings": { "chargeReport.recipient": "…" } }'}</code>. Die Datei gehört nicht ins Repo.
+      </p>
+      <form method="POST" action="?/importSettings" enctype="multipart/form-data" use:enhance class="row">
+        <input name="file" type="file" accept="application/json,.json" required data-testid="seed-file" />
+        <button class="secondary" type="submit">Übernehmen</button>
+      </form>
+      {#if form && 'seedErrors' in form && form.seedErrors}
+        {#each form.seedErrors as e (e)}<p class="error" role="alert">{e}</p>{/each}
+      {:else if form && 'seedImported' in form}
+        <p class="muted small" role="status" data-testid="seed-imported">
+          {form.seedImported === 1 ? '1 Einstellung' : `${form.seedImported} Einstellungen`} übernommen.
+        </p>
+      {/if}
+    </div>
+  </details>
+
   <details class="card section" open={passkeysOpen}>
     <summary>
       <h2>Passkeys</h2>
@@ -252,6 +365,22 @@
 
   .warn {
     border-color: var(--energy);
+  }
+
+  .fields {
+    gap: 10px;
+  }
+
+  .fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+  }
+
+  .fields textarea {
+    font: inherit;
+    resize: vertical;
   }
 
   .section > summary {

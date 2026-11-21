@@ -192,6 +192,55 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page,
   await nav.getByRole('link', { name: 'Wärme' }).click();
   await expect(page.getByTestId('wp-day')).toHaveText('Heute');
   await nav.getByRole('link', { name: 'Übersicht' }).click();
+
+  // Lade-Aufstellung (erfundene Werte aus e2e/seed-charge-report.ts): Todo, Prüfung, Empfänger per Seed, Freigabe
+  const todo = page.getByTestId('todo-charge-report');
+  await expect(todo).toContainText('Lade-Aufstellung Q3 2026');
+  await expect(todo).toContainText('Prüfen und freigeben');
+  await todo.click();
+  await expect(page.getByRole('heading', { name: 'Lade-Aufstellung Q3 2026' })).toBeVisible();
+  await expect(page.getByTestId('report-count')).toHaveText('2');
+  await expect(page.getByTestId('report-kwh')).toHaveText('50,75 kWh');
+  await expect(page.getByTestId('report-sessions').locator('tbody tr')).toHaveCount(2);
+  await expect(page.getByTestId('mail-to')).toHaveText('kein Empfänger eingetragen');
+  await expect(page.getByTestId('approve')).toBeDisabled();
+  const download = await page.request.get('/ladeaufstellung/2026-Q3/csv');
+  expect(download.headers()['content-type']).toContain('text/csv');
+  expect(await download.text()).toContain('"Session Number"');
+
+  await nav.getByRole('link', { name: 'Einstellungen' }).click();
+  await expect(page.getByTestId('charge-mail-status')).toHaveAttribute('data-state', 'ready');
+  await page.locator('summary', { hasText: 'Seed-Datei' }).click();
+  await page.getByTestId('seed-file').setInputFiles({
+    name: 'einstellungen.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(
+      JSON.stringify({
+        settings: {
+          'chargeReport.recipient': 'firma@example.test',
+          'chargeReport.subject': 'Laden {quartal}',
+        },
+      }),
+    ),
+  });
+  await page
+    .locator('details', { hasText: 'Seed-Datei' })
+    .getByRole('button', { name: 'Übernehmen' })
+    .click();
+  await expect(page.getByTestId('seed-imported')).toHaveText('2 Einstellungen übernommen.');
+  await page.locator('summary', { hasText: 'Lade-Aufstellung' }).click();
+  await expect(page.getByTestId('charge-recipient')).toHaveValue('firma@example.test');
+  if (shots) await page.screenshot({ path: `${shots}/einstellungen-ladeaufstellung.png`, fullPage: true });
+
+  await page.goto('/ladeaufstellung/2026-Q3');
+  await expect(page.getByTestId('mail-to')).toHaveText('firma@example.test');
+  await expect(page.getByText('Laden Q3 2026')).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/ladeaufstellung.png`, fullPage: true });
+  await page.getByTestId('approve').click();
+  // Ohne Collector bleibt sie freigegeben, bis der Collector sie verschickt
+  await expect(page.getByTestId('report-status')).toHaveText('Wird gesendet');
+  await nav.getByRole('link', { name: 'Übersicht' }).click();
+  await expect(todo).toContainText('Wird gesendet');
   await page.goto('/strom/import');
 
   // Optional lokal: echten Export prüfen (Datei bleibt außerhalb des Repos), z. B. E2E_REAL_CSV=../../prep/x.csv

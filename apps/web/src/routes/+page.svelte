@@ -26,6 +26,22 @@
     <p class="muted">Energie &amp; Kosten auf einen Blick</p>
   </header>
 
+  {#if data.todos.length > 0}
+    <section class="stack todos" aria-label="Zu erledigen">
+      {#each data.todos as todo (todo.quarter)}
+        <a
+          class="card todo link"
+          class:action={todo.status === 'review' || todo.status === 'failed'}
+          href={resolve('/ladeaufstellung/[quartal]', { quartal: todo.quarter })}
+          data-testid="todo-charge-report"
+        >
+          <span class="todo-title">Lade-Aufstellung {todo.label}</span>
+          <span class="muted todo-status">{todo.statusLabel}</span>
+        </a>
+      {/each}
+    </section>
+  {/if}
+
   <section class="grid" aria-label="Kennzahlen">
     <a class="card tile link" href={resolve('/strom')} data-testid="tile-day">
       {#if data.overview}
@@ -141,5 +157,30 @@
   .hint {
     font-size: 0.75rem;
     margin-top: auto;
+  }
+
+  .todos {
+    gap: 8px;
+  }
+
+  .todo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-left: 4px solid var(--border);
+  }
+
+  .todo.action {
+    border-left-color: var(--energy);
+  }
+
+  .todo-title {
+    font-weight: 600;
+  }
+
+  .todo-status {
+    font-size: 0.85rem;
+    text-align: right;
   }
 </style>

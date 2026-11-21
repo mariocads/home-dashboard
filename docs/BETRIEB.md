@@ -133,6 +133,27 @@ Der Collector liest die go-e Wallbox über ihre lokale HTTP API v2 (`/api/status
 4. In `/opt/stacks/home-dashboard/.env` `GOE_HOST=<IP der Wallbox>` eintragen und `./deploy.sh` ausführen. Ohne Eintrag ist der Adapter aus; der Gerätename enthält die Seriennummer und steht deshalb nicht als Standard im Repo.
 5. In der App unter **Einstellungen → Wallbox (go-e)** muss „Online“ stehen.
 
+### Lade-Aufstellung der Wallbox (quartalsweise per Mail)
+
+Zum Quartalsende legt der Collector ein Todo an (Übersicht → **Lade-Aufstellung Qn JJJJ**). Er holt den originalen CSV-Export aus der go-e-Cloud, also dieselbe Datei wie in der go-e-App unter Ladeverlauf, sobald kein Auto mehr angesteckt ist (spätestens drei Tage nach Quartalsende). In der App prüfen und **Freigeben und senden**; der Collector verschickt dann genau diese CSV per Mail. Den Export-Link mit Token liest der Collector jedes Mal frisch von der Wallbox (Schlüssel `dll`); er wird nirgends gespeichert oder geloggt.
+
+Einmalig einrichten:
+
+1. **Gmail-App-Passwort:** Im Google-Konto die Bestätigung in zwei Schritten aktivieren, dann unter <https://myaccount.google.com/apppasswords> ein App-Passwort anlegen (Name z. B. „Home Dashboard“). Es gilt nur für den Mailversand und lässt sich dort jederzeit widerrufen.
+2. In `/opt/stacks/home-dashboard/.env` eintragen und `./deploy.sh` ausführen:
+   ```bash
+   SMTP_USER=<Gmail-Adresse>
+   SMTP_PASS=<App-Passwort, 16 Zeichen>
+   ```
+   Andere Anbieter: zusätzlich `SMTP_HOST` und `SMTP_PORT` (465 = TLS, 587 = STARTTLS) setzen.
+3. Empfänger, Betreff, Dateiname und Text unter **Einstellungen → Lade-Aufstellung** eintragen oder aus einer lokalen Seed-Datei übernehmen (**Einstellungen → Seed-Datei**, z. B. `prep/seed/einstellungen.json`, nie im Repo):
+   ```json
+   { "settings": { "chargeReport.recipient": "…", "chargeReport.subject": "Lade-Aufstellung {quartal}" } }
+   ```
+4. **Einstellungen → Lade-Aufstellung** zeigt „Mail bereit“. Zum Testen unter **Lade-Aufstellung → Früheres Quartal holen** ein vergangenes Quartal holen und **Testmail an mich** schicken; die Testmail geht nur an den Absender.
+
+Ein Quartal, das nicht eingereicht wird, lässt sich **überspringen**. Die verschickte Mail liegt bei Gmail im Ordner „Gesendet“.
+
 ### Tarife übernehmen
 
 Preise, Teilzahlungen und Rechnungen liegen nur in der Datenbank und in einer lokalen JSON-Datei (z. B. `prep/seed/tarife.json`), nie im Repo.
@@ -261,4 +282,6 @@ rm caddy_data.tgz                            # enthält den privaten Schlüssel 
 | collector meldet `ENOTFOUND` beim AMIS-Leser | Name löst im Container nicht auf: in `.env` `AMIS_URL=http://<feste IP>/rest` setzen            |
 | Wärmepumpe „Offline“ mit `ECONNREFUSED`      | Modbus TCP an der ISG nicht aktiv; in der SERVICEWELT unter **Diagnose → System → ISG** prüfen  |
 | Wallbox „Offline“ mit `HTTP 404`             | Lokale HTTP API v2 in der go-e-App aktivieren                                                   |
+| Lade-Aufstellung: `Invalid login (SMTP 535)` | App-Passwort falsch oder widerrufen; neu anlegen, in `.env` `SMTP_PASS` setzen, `./deploy.sh`   |
+| Lade-Aufstellung: `go-e-Cloud: HTTP …`       | Cloud der Wallbox nicht erreichbar oder Wallbox offline; später **Neu laden**                   |
 | Wärmepumpe „Offline“ mit `ENOTFOUND`         | in `.env` `ISG_HOST=<feste IP>` setzen                                                          |

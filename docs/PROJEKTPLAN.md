@@ -199,7 +199,7 @@ Blockiert durch die offenen Punkte O1 bis O3.
 
 ### Phase 3: Wallbox und Wärmepumpe
 
-- go-e Gemini Flex: lokale HTTP-API v2 in der go-e-App aktivieren, Ladevorgänge mit kWh und Kosten pro Ladung, Monatsstatistik. **Der Collector-Adapter `goe` erfasst Zählerstand, Leistung, Ströme und Fahrzeugzustand**; offen sind Ladevorgänge, Ansicht und Monatsstatistik.
+- go-e Gemini Flex: lokale HTTP-API v2 in der go-e-App aktivieren, Ladevorgänge mit kWh und Kosten pro Ladung, Monatsstatistik. **Der Collector-Adapter `goe` erfasst Zählerstand, Leistung, Ströme und Fahrzeugzustand. Die quartalsweise Lade-Aufstellung (go-e-Export, Prüfung und Freigabe in der App, Versand per Mail) ist umgesetzt**; offen sind Ansicht und Monatsstatistik.
 - Stiebel ISG über Modbus TCP: Vorlauf- und Rücklauftemperatur, Außentemperatur, Betriebsmodus, Verdichterstarts, Wärme- und Stromzähler (soweit vorhanden), Störmeldungen. **Der Collector-Adapter `isg` erfasst die Werte, die Ansicht „Wärme“ zeigt aktuelle Werte, Tageswerte und Verläufe**; offen sind Statusbits, Kühlstrom und Monats- bzw. Jahresauswertung.
 - Effizienzkennzahlen: COP und JAZ aus WP-Strom und Wärmemenge, Abhängigkeit von der Außentemperatur
 
