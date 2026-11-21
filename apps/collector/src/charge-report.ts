@@ -109,22 +109,58 @@ export interface ChargeReportJobOptions {
   fetch?: typeof fetch;
   now?: () => number;
   intervalMs?: number;
+  /** Wartezeit auf die Wallbox; sie braucht für den Export-Link oft mehrere Sekunden */
+  boxTimeoutMs?: number;
+  /** Wartezeit auf die go-e-Cloud */
   timeoutMs?: number;
+  /** Pause vor dem zweiten Versuch */
+  retryDelayMs?: number;
 }
 
 /** Fehlermeldung ohne URL, Token oder Antwortinhalt. */
 export function describeError(e: unknown): string {
-  const err = e as Error & { cause?: { code?: string }; code?: string; responseCode?: number };
-  const code = err.cause?.code ?? err.code;
+  const err = e as Error & { cause?: { code?: unknown }; code?: unknown; responseCode?: number };
+  // Nur sprechende Codes (ECONNREFUSED …); DOMException-Nummern wie 23 sagen nichts
+  const code = [err.cause?.code, err.code].find((c) => typeof c === 'string');
   const detail = err.responseCode ? ` (SMTP ${err.responseCode})` : code ? ` (${code})` : '';
   return `${err.name}: ${err.message.replace(/https?:\/\/\S+/g, '<url>')}${detail}`.slice(0, 500);
 }
+
+const isTimeout = (e: unknown) => (e as Error).name === 'TimeoutError' || (e as Error).name === 'AbortError';
 
 export function createChargeReportJob(opts: ChargeReportJobOptions): Adapter & { runOnce(): Promise<void> } {
   const doFetch = opts.fetch ?? globalThis.fetch;
   const now = opts.now ?? Date.now;
   const intervalMs = opts.intervalMs ?? 15_000;
-  const timeoutMs = opts.timeoutMs ?? 30_000;
+  const boxTimeoutMs = opts.boxTimeoutMs ?? 20_000;
+  const timeoutMs = opts.timeoutMs ?? 60_000;
+  const retryDelayMs = opts.retryDelayMs ?? 3000;
+
+  /**
+   * Abfrage mit einem zweiten Versuch bei Zeitüberschreitung oder Netzfehler. Fehler nennen den
+   * Schritt (Wallbox oder go-e-Cloud), aber nie die URL.
+   */
+  async function fetchStep(label: string, url: string, ms: number): Promise<Response> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const res = await doFetch(url, { signal: AbortSignal.timeout(ms) });
+        if (!res.ok) throw Object.assign(new Error(`${label}: HTTP ${res.status}`), { final: true });
+        return res;
+      } catch (e) {
+        if ((e as { final?: boolean }).final) throw e;
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, retryDelayMs));
+          continue;
+        }
+        if (isTimeout(e)) {
+          throw new Error(`${label}: keine Antwort nach ${Math.round(ms / 1000)} s (2 Versuche)`, {
+            cause: e,
+          });
+        }
+        throw new Error(`${label}: ${describeError(e)}`, { cause: e });
+      }
+    }
+  }
   const send = opts.send ?? (opts.mail ? createSmtpSender(opts.mail) : null);
 
   let ctx: AdapterContext | null = null;
@@ -153,11 +189,9 @@ export function createChargeReportJob(opts: ChargeReportJobOptions): Adapter & {
       const host = /^https?:\/\//.test(opts.goeHost)
         ? opts.goeHost.replace(/\/+$/, '')
         : `http://${opts.goeHost}`;
-      const statusRes = await doFetch(`${host}/api/status?filter=dll`, { signal: AbortSignal.timeout(5000) });
-      if (!statusRes.ok) throw new Error(`Wallbox: HTTP ${statusRes.status}`);
+      const statusRes = await fetchStep('Wallbox', `${host}/api/status?filter=dll`, boxTimeoutMs);
       const { dll } = (await statusRes.json()) as { dll?: unknown };
-      const res = await doFetch(goeExportUrl(dll, q), { signal: AbortSignal.timeout(timeoutMs) });
-      if (!res.ok) throw new Error(`go-e-Cloud: HTTP ${res.status}`);
+      const res = await fetchStep('go-e-Cloud', goeExportUrl(dll, q), timeoutMs);
       const csv = await res.text();
       const summary = summarizeChargeSessions(parseGoeChargeCsv(csv), q);
       await saveChargeExport(

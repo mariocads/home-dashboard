@@ -78,6 +78,7 @@ describe('Lade-Aufstellung (Collector)', () => {
       mail: MAIL,
       fetch: fakeFetch(),
       now: () => at,
+      retryDelayMs: 0,
       ...opts,
     });
     await job.start({ db: h.db, log });
@@ -123,6 +124,32 @@ describe('Lade-Aufstellung (Collector)', () => {
     await run({ fetch: fakeFetch({ cloudStatus: 500 }) });
     const row = await getChargeReport(h.db, '2026-Q4');
     expect(row).toMatchObject({ status: 'requested', lastError: 'Error: go-e-Cloud: HTTP 500' });
+  });
+
+  const timeout = () => new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+
+  it('langsame Wallbox: zweiter Versuch reicht', async () => {
+    const inner = fakeFetch();
+    let calls = 0;
+    const fetch = vi.fn(async (input: string | URL | Request) => {
+      if (String(input).includes('filter=dll') && calls++ === 0) throw timeout();
+      return inner(input);
+    });
+    await run({ fetch });
+    expect((await getChargeReport(h.db, '2026-Q4'))?.status).toBe('review');
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('Wallbox antwortet nie: Meldung nennt den Schritt, nicht den DOMException-Code', async () => {
+    const fetch = vi.fn(async () => {
+      throw timeout();
+    });
+    await run({ fetch, boxTimeoutMs: 20_000 });
+    expect((await getChargeReport(h.db, '2026-Q4'))?.lastError).toBe(
+      'Error: Wallbox: keine Antwort nach 20 s (2 Versuche)',
+    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(describeError(timeout())).toBe('TimeoutError: The operation was aborted due to timeout');
   });
 
   it('verschickt nach Freigabe genau den freigegebenen Export', async () => {

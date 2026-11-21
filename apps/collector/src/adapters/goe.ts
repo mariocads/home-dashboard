@@ -38,7 +38,7 @@ function describeError(e: unknown): string {
  */
 export function createGoeAdapter(opts: GoeAdapterOptions): Adapter & { pollOnce(): Promise<void> } {
   const doFetch = opts.fetch ?? globalThis.fetch;
-  const timeoutMs = opts.timeoutMs ?? 5000;
+  const timeoutMs = opts.timeoutMs ?? 15_000;
   const now = opts.now ?? Date.now;
   const settingsCheckMs = opts.settingsCheckMs ?? 10_000;
   const url = goeStatusUrl(opts.host);
