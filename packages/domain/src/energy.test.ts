@@ -194,6 +194,9 @@ describe('Kennzahlen', () => {
     expect(niceTicks(0)).toEqual([0, 1]);
     expect(niceTicks(3.7)).toEqual([0, 1, 2, 3, 4]);
     expect(niceTicks(47)).toEqual([0, 20, 40, 60]);
+    expect(niceTicks(100)).toEqual([0, 25, 50, 75, 100]);
+    // knapp über einem Schritt: Achse muss darüber hinausreichen (Fund aus CI)
+    expect(niceTicks(100000.10000010002)).toEqual([0, 50000, 100000, 150000]);
     fc.assert(
       fc.property(fc.double({ min: 0.001, max: 1e6, noNaN: true }), (max) => {
         const t = niceTicks(max);

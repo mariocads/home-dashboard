@@ -262,9 +262,9 @@ export function niceTicks(max: number): number[] {
   const rough = max / 4;
   const mag = 10 ** Math.floor(Math.log10(rough));
   const step = [1, 2, 2.5, 5, 10].map((f) => f * mag).find((s) => s >= rough)!;
-  const ticks: number[] = [];
-  for (let v = 0; v < max + step * 0.999; v += step) ticks.push(round(v, 6));
-  return ticks;
+  // Anzahl Schritte, bis die Achse max erreicht (Toleranz nur gegen Rundungsfehler der Division)
+  const n = Math.max(1, Math.ceil(max / step - 1e-9));
+  return Array.from({ length: n + 1 }, (_, i) => round(i * step, 6));
 }
 
 function round(v: number, digits: number): number {
