@@ -199,6 +199,16 @@ cat .deploy-history         # bisherige Deploys
 
 Die Migrationen laufen beim Start des `web`-Containers automatisch und sind idempotent.
 
+`./deploy.sh` ohne Tag holt vorher mit `git pull` die aktuellen Deploy-Dateien aus `/opt/stacks/repo` (Abschnitt 3) und übernimmt `compose.yml`, die Skripte und `.env.example`. Die `.env` bleibt unverändert, eigene Werte gehören deshalb nur dorthin. Bei einem Rollback mit Tag bleiben die Deploy-Dateien, wie sie sind.
+
+**Einmalig auf Servern mit älterer `deploy.sh`:** Die alte Version kann sich noch nicht selbst aktualisieren. Deshalb einmal von Hand übernehmen:
+
+```bash
+cd /opt/stacks/repo && git pull
+cp deploy/home-dashboard/{compose.yml,deploy.sh,backup.sh,restore.sh,.env.example} /opt/stacks/home-dashboard/
+cd /opt/stacks/home-dashboard && ./deploy.sh
+```
+
 ## 7. Backups
 
 ```bash
