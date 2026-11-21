@@ -119,6 +119,20 @@ Der Collector liest die Wärmepumpe über die ISG per Modbus TCP (Port 502), sta
 3. In `/opt/stacks/home-dashboard/.env` `ISG_HOST=<IP der ISG>` eintragen und `./deploy.sh` ausführen. Ohne Eintrag fragt der Collector `servicewelt.fritz.box` ab; `ISG_HOST=` (leer) schaltet den Adapter ab.
 4. In der App unter **Einstellungen → Wärmepumpe (ISG)** muss nach spätestens einer Minute „Online“ stehen.
 
+### Wallbox: go-e
+
+Der Collector liest die go-e Wallbox über ihre lokale HTTP API v2 (`/api/status`), standardmäßig jede Minute: Zählerstand, Leistung, Ströme je Phase, Fahrzeugzustand und Energie der laufenden Ladung. Er ruft nie `/api/set` auf und fragt Seriennummer und WLAN-Daten nicht ab.
+
+1. In der go-e-App die Wallbox öffnen, **Internet → Erweiterte Einstellungen → Lokale HTTP API v2 aktivieren**. Der Schalter gibt im Heimnetz ohne Anmeldung auch das Steuern frei (`/api/set`); Gäste gehören ins Gäste-WLAN.
+2. In der FRITZ!Box der Wallbox eine feste IP geben.
+3. Vom Server prüfen:
+   ```bash
+   curl -s "http://<IP der Wallbox>/api/status?filter=car,eto"
+   ```
+   Erwartet wird z. B. `{"car":1,"eto":…}`. „Nothing matches the given URI“ heißt: API noch aus.
+4. In `/opt/stacks/home-dashboard/.env` `GOE_HOST=<IP der Wallbox>` eintragen und `./deploy.sh` ausführen. Ohne Eintrag ist der Adapter aus; der Gerätename enthält die Seriennummer und steht deshalb nicht als Standard im Repo.
+5. In der App unter **Einstellungen → Wallbox (go-e)** muss „Online“ stehen.
+
 ### Tarife übernehmen
 
 Preise, Teilzahlungen und Rechnungen liegen nur in der Datenbank und in einer lokalen JSON-Datei (z. B. `prep/seed/tarife.json`), nie im Repo.
@@ -190,11 +204,11 @@ cd /opt/stacks/home-dashboard
 
 Zum Beispiel vom Raspberry Pi auf den ThinkCentre. Mitgenommen werden drei Dinge:
 
-| Was                         | Warum                                                                                     |
-| --------------------------- | ----------------------------------------------------------------------------------------- |
-| Datenbank-Dump              | Messwerte, Tarife, Passkeys, Einstellungen                                                |
-| `.env`                      | Datenbank-Passwort, Hostname, Adressen von AMIS-Leser und ISG, TimescaleDB-Version        |
-| Caddy-Volume (`caddy_data`) | Die interne Zertifizierungsstelle: Das Root-Zertifikat auf Handy und Laptop bleibt gültig |
+| Was                         | Warum                                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| Datenbank-Dump              | Messwerte, Tarife, Passkeys, Einstellungen                                                  |
+| `.env`                      | Datenbank-Passwort, Hostname, Adressen von AMIS-Leser, ISG und Wallbox, TimescaleDB-Version |
+| Caddy-Volume (`caddy_data`) | Die interne Zertifizierungsstelle: Das Root-Zertifikat auf Handy und Laptop bleibt gültig   |
 
 Weil der Hostname `home-server.fritz.box` gleich bleibt, funktionieren die Passkeys weiter. Die Images holt der neue Server selbst passend zu seiner Architektur aus GHCR. Der Umzug dauert etwa 15 Minuten. In dieser Zeit fehlen die Live-Werte des AMIS-Lesers; die Viertelstundenwerte lassen sich später aus dem NetzOÖ-Export nachladen.
 
@@ -246,4 +260,5 @@ rm caddy_data.tgz                            # enthält den privaten Schlüssel 
 | Kachel „Leistung jetzt“ zeigt „veraltet“     | **Einstellungen → AMIS-Leser** zeigt Zustand und Ursache; sonst `docker compose logs collector` |
 | collector meldet `ENOTFOUND` beim AMIS-Leser | Name löst im Container nicht auf: in `.env` `AMIS_URL=http://<feste IP>/rest` setzen            |
 | Wärmepumpe „Offline“ mit `ECONNREFUSED`      | Modbus TCP an der ISG nicht aktiv; in der SERVICEWELT unter **Diagnose → System → ISG** prüfen  |
+| Wallbox „Offline“ mit `HTTP 404`             | Lokale HTTP API v2 in der go-e-App aktivieren                                                   |
 | Wärmepumpe „Offline“ mit `ENOTFOUND`         | in `.env` `ISG_HOST=<feste IP>` setzen                                                          |

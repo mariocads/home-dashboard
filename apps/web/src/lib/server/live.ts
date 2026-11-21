@@ -1,6 +1,7 @@
 import { type AdapterStatusRow, type Db, getAdapterStatus, getSetting, latestReading } from '@hd/db';
 import {
   AMIS_POLL_INTERVAL,
+  GOE_POLL_INTERVAL,
   ISG_POLL_INTERVAL,
   MAIN_METER,
   QUANTITY,
@@ -48,7 +49,7 @@ export interface DeviceStatus {
   checkedAt: string | null;
 }
 
-type Device = 'amis' | 'isg';
+type Device = 'amis' | 'isg' | 'goe';
 
 /** Ursachen in Worten je Gerät; die erste passende Regel gewinnt. */
 const HINTS: Record<Device, [RegExp, string][]> = {
@@ -78,6 +79,22 @@ const HINTS: Record<Device, [RegExp, string][]> = {
       'Die ISG antwortet nicht. Ist sie eingeschaltet und im Netzwerk? In der FRITZ!Box prüfen, ob sie aktiv ist.',
     ],
     [/ModbusError/, 'Die ISG lehnt die Abfrage ab. Passt die Anlage zur Registerliste (WPM)?'],
+  ],
+  goe: [
+    [
+      /ENOTFOUND|EAI_AGAIN/,
+      'Der Name der Wallbox lässt sich nicht auflösen. In der .env GOE_HOST mit der festen IP setzen.',
+    ],
+    [
+      /EHOSTUNREACH|ENETUNREACH|ETIMEDOUT|ECONNREFUSED|ECONNRESET|TimeoutError/,
+      'Die Wallbox antwortet nicht. Ist sie eingeschaltet und im WLAN? In der FRITZ!Box prüfen, ob sie aktiv ist.',
+    ],
+    [
+      /HTTP 404/,
+      'Die lokale HTTP API v2 ist aus. In der go-e-App unter Internet → Erweiterte Einstellungen aktivieren.',
+    ],
+    [/HTTP \d{3}/, 'Die Wallbox antwortet mit einem Fehler.'],
+    [/GoePayloadError/, 'Die Antwort der Wallbox hat ein unerwartetes Format.'],
   ],
 };
 
@@ -140,4 +157,13 @@ export async function getIsgInterval(db: Db): Promise<number> {
 export async function getIsgStatus(db: Db, now = new Date()): Promise<DeviceStatus> {
   const [row, intervalS] = await Promise.all([getAdapterStatus(db, 'isg'), getIsgInterval(db)]);
   return deviceStatus('isg', row, intervalS, now);
+}
+
+export async function getGoeInterval(db: Db): Promise<number> {
+  return resolveIntegerSetting(GOE_POLL_INTERVAL, await getSetting(db, GOE_POLL_INTERVAL.key));
+}
+
+export async function getGoeStatus(db: Db, now = new Date()): Promise<DeviceStatus> {
+  const [row, intervalS] = await Promise.all([getAdapterStatus(db, 'goe'), getGoeInterval(db)]);
+  return deviceStatus('goe', row, intervalS, now);
 }

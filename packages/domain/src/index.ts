@@ -26,6 +26,18 @@ export {
   type StoredInterval,
   summarizeIntervals,
 } from './netzooe.ts';
+export {
+  CAR_STATE,
+  CAR_STATE_LABELS,
+  GOE_KEYS,
+  GOE_QUANTITY,
+  GOE_SOURCE,
+  GoePayloadError,
+  type GoeSample,
+  goeSampleToReadings,
+  parseGoeStatus,
+  WALLBOX_METER,
+} from './goe.ts';
 export { bucketAverage, counterIncrease, type LinePoint, type TimedValue, workRatio } from './heatpump.ts';
 export {
   ISG_BLOCKS,
@@ -50,6 +62,7 @@ export {
 } from './time.ts';
 export {
   AMIS_POLL_INTERVAL,
+  GOE_POLL_INTERVAL,
   type IntegerSetting,
   ISG_POLL_INTERVAL,
   parseIntegerSetting,

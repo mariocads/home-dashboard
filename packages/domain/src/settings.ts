@@ -29,6 +29,16 @@ export const ISG_POLL_INTERVAL: IntegerSetting = {
   max: 3600,
 };
 
+/** Abfrageintervall der Wallbox (go-e, HTTP API v2). */
+export const GOE_POLL_INTERVAL: IntegerSetting = {
+  key: 'goe.pollIntervalSeconds',
+  label: 'Abfrageintervall Wallbox',
+  unit: 's',
+  default: 60,
+  min: 5,
+  max: 3600,
+};
+
 /** Liest einen gespeicherten Wert; fehlende oder ungültige Werte ergeben den Standardwert. */
 export function resolveIntegerSetting(def: IntegerSetting, stored: unknown): number {
   return typeof stored === 'number' && Number.isInteger(stored) && stored >= def.min && stored <= def.max

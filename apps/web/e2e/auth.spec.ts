@@ -74,6 +74,7 @@ test('Ersteinrichtung, Login, Logout und Recovery-Code (Mobile)', async ({ page,
   await expect(page.getByTestId('amis-status')).toHaveAttribute('data-state', 'waiting');
   await expect(page.getByTestId('amis-status')).toContainText('Noch keine Rückmeldung');
   await expect(page.getByTestId('isg-status')).toHaveAttribute('data-state', 'waiting');
+  await expect(page.getByTestId('goe-status')).toHaveAttribute('data-state', 'waiting');
   const shots = process.env.E2E_SCREENSHOTS; // Verzeichnis außerhalb des Repos
   if (shots) await page.screenshot({ path: `${shots}/einstellungen.png`, fullPage: true });
   await page.locator('summary', { hasText: 'AMIS-Leser' }).click();

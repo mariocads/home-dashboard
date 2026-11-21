@@ -139,6 +139,15 @@
     saved: !!form && 'isgSaved' in form,
   })}
 
+  {@render device({
+    id: 'goe',
+    title: 'Wallbox (go-e)',
+    info: data.goe,
+    action: '?/saveGoeInterval',
+    error: form && 'goeError' in form ? form.goeError : null,
+    saved: !!form && 'goeSaved' in form,
+  })}
+
   <details class="card section" open={passkeysOpen}>
     <summary>
       <h2>Passkeys</h2>

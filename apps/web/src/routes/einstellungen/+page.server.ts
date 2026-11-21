@@ -1,9 +1,12 @@
 import { latestReading, setSetting } from '@hd/db';
 import {
   AMIS_POLL_INTERVAL,
+  GOE_POLL_INTERVAL,
+  GOE_QUANTITY,
   ISG_POLL_INTERVAL,
   parseIntegerSetting,
   WP_METER,
+  WALLBOX_METER,
   WP_QUANTITY,
 } from '@hd/domain';
 import { fail, redirect } from '@sveltejs/kit';
@@ -20,6 +23,8 @@ import { getDb } from '#lib/server/db.ts';
 import {
   getAmisInterval,
   getAmisStatus,
+  getGoeInterval,
+  getGoeStatus,
   getIsgInterval,
   getIsgStatus,
   getLivePower,
@@ -31,7 +36,18 @@ const config = loadConfig();
 export const load: PageServerLoad = async ({ locals, url }) => {
   const { db } = await getDb();
   const user = locals.user!;
-  const [passkeys, amisInterval, power, amisStatus, isgInterval, isgLast, isgStatus] = await Promise.all([
+  const [
+    passkeys,
+    amisInterval,
+    power,
+    amisStatus,
+    isgInterval,
+    isgLast,
+    isgStatus,
+    goeInterval,
+    goeLast,
+    goeStatus,
+  ] = await Promise.all([
     listPasskeys(db, user.id),
     getAmisInterval(db),
     getLivePower(db),
@@ -39,6 +55,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     getIsgInterval(db),
     latestReading(db, WP_METER.slug, WP_QUANTITY.outdoorC),
     getIsgStatus(db),
+    getGoeInterval(db),
+    latestReading(db, WALLBOX_METER.slug, GOE_QUANTITY.powerW),
+    getGoeStatus(db),
   ]);
   return {
     amis: {
@@ -54,6 +73,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       max: ISG_POLL_INTERVAL.max,
       lastValueAt: isgLast?.ts.toISOString() ?? null,
       status: isgStatus,
+    },
+    goe: {
+      interval: goeInterval,
+      min: GOE_POLL_INTERVAL.min,
+      max: GOE_POLL_INTERVAL.max,
+      lastValueAt: goeLast?.ts.toISOString() ?? null,
+      status: goeStatus,
     },
     recovered: url.searchParams.has('recovered'),
     recoveryCodesLeft: await countRecoveryCodes(db, user.id),
@@ -100,6 +126,14 @@ export const actions: Actions = {
     const { db } = await getDb();
     await setSetting(db, ISG_POLL_INTERVAL.key, parsed.value);
     return { isgSaved: true };
+  },
+
+  saveGoeInterval: async ({ request }) => {
+    const parsed = parseIntegerSetting(GOE_POLL_INTERVAL, (await request.formData()).get('interval'));
+    if (!parsed.ok) return fail(400, { goeError: parsed.error });
+    const { db } = await getDb();
+    await setSetting(db, GOE_POLL_INTERVAL.key, parsed.value);
+    return { goeSaved: true };
   },
 
   regenerateCodes: async ({ locals }) => {

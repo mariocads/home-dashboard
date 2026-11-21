@@ -15,6 +15,8 @@ import {
   describeDeviceError,
   getAmisInterval,
   getAmisStatus,
+  getGoeInterval,
+  getGoeStatus,
   getIsgInterval,
   getIsgStatus,
   getLivePower,
@@ -124,6 +126,36 @@ describe('Zustand der Wärmepumpe (ISG)', () => {
     expect((await getAmisStatus(h.db, t)).state).toBe('waiting');
     await setSetting(h.db, ISG_POLL_INTERVAL.key, 600);
     expect((await getIsgStatus(h.db, new Date(t.getTime() + 1_000_000))).state).toBe('offline');
+    await h.close();
+  });
+});
+
+describe('Zustand der Wallbox (go-e)', () => {
+  const t = new Date('2026-11-21T10:00:00Z');
+
+  it('Ursachen in Worten', () => {
+    expect(describeDeviceError('goe', 'Error: HTTP 404')).toMatch(/HTTP API v2 ist aus/);
+    expect(describeDeviceError('goe', 'Error: HTTP 500')).toMatch(/mit einem Fehler/);
+    expect(describeDeviceError('goe', 'TypeError: fetch failed (ENOTFOUND)')).toMatch(/GOE_HOST/);
+    expect(describeDeviceError('goe', 'TypeError: fetch failed (EHOSTUNREACH)')).toMatch(
+      /Wallbox antwortet nicht/,
+    );
+  });
+
+  it('eigenes Intervall und eigener Zustand', async () => {
+    const h = createDb('pglite://memory');
+    await runMigrations(h);
+    expect(await getGoeInterval(h.db)).toBe(60);
+    expect((await getGoeStatus(h.db, t)).state).toBe('waiting');
+    await saveAdapterStatus(
+      h.db,
+      { name: 'goe', target: 'http://wallbox.test/api/status', lastSuccessAt: t, lastError: null },
+      t,
+    );
+    expect(await getGoeStatus(h.db, t)).toMatchObject({
+      state: 'online',
+      target: 'http://wallbox.test/api/status',
+    });
     await h.close();
   });
 });
